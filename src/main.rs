@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::{env::current_dir, fs, io, os::macos::fs::MetadataExt, path::PathBuf};
+use std::{env, fs, os::macos::fs::MetadataExt, path::PathBuf};
 
 #[derive(Parser)]
 #[command(name = "fcnt")]
@@ -39,28 +39,52 @@ impl Counter {
     }
 }
 
+// walk all the files in dir
+struct Walker {
+    readers: Vec<fs::ReadDir>,
+}
+
+impl Walker {
+    pub fn new(dirpath: &PathBuf) -> Walker {
+        if dirpath.is_dir() {
+            let rd = fs::read_dir(dirpath).unwrap();
+            return Walker { readers: vec![rd] };
+        } else {
+            panic!("the {:?} is not a directory.", dirpath);
+        }
+    }
+}
+
+impl Iterator for Walker {
+    type Item = fs::DirEntry;
+
+    fn next(&mut self) -> Option<fs::DirEntry> {
+        if self.readers.is_empty() {
+            return None;
+        } else {
+            let reader = &mut self.readers[0];
+            if let Some(entry) = reader.next() {
+                let entry: fs::DirEntry = entry.unwrap();
+                if entry.path().is_dir() {
+                    let sub_reader = fs::read_dir(&entry.path()).unwrap();
+                    self.readers.push(sub_reader);
+                    return self.next();
+                } else {
+                    return Some(entry);
+                }
+            } else {
+                self.readers.remove(0);
+                return self.next();
+            }
+        }
+    }
+}
+
 // the total block size used by a file
 fn file_size(metadata: &fs::Metadata) -> u64 {
     let sz = metadata.st_size() as f64;
     let blksz = metadata.st_blksize() as f64;
     return (blksz * (sz / blksz).ceil()) as u64;
-}
-
-// walk all the files in dir
-fn walk_dir(dir_path: &PathBuf) -> io::Result<()> {
-    if dir_path.is_dir() {
-        for entry in fs::read_dir(dir_path)? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.is_file() {
-                let name = entry.file_name();
-                let size = file_size(&entry.metadata()?);
-                println!("{:15} sz={:<5}B", name.to_str().unwrap(), size);
-            }
-        }
-    }
-    Ok(())
 }
 
 fn main() {
@@ -69,7 +93,7 @@ fn main() {
     // get the directories
     let mut directories: Vec<PathBuf> = Vec::new();
     if args.directories.is_empty() {
-        directories.push(current_dir().unwrap());
+        directories.push(env::current_dir().unwrap());
     } else {
         for dir in args.directories.iter().map(|p| PathBuf::from(p)) {
             if dir.is_dir() {
@@ -81,7 +105,14 @@ fn main() {
     }
 
     for dir in directories {
-        let _ = walk_dir(&dir);
+        let walker = Walker::new(&dir);
+        for entry in walker {
+            if let Ok(meta) = entry.metadata() {
+                if let Some(name) = entry.path().file_name() {
+                    println!("{:?}: {:?}", name, file_size(&meta));
+                }
+            }
+        }
     }
 
     println!("all_files: {:?}", args.all_files);
