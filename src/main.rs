@@ -1,5 +1,7 @@
 use clap::Parser;
-use std::{env, fs, os::macos::fs::MetadataExt, path::PathBuf};
+use std::{env, fs, os::macos::fs::MetadataExt, path::PathBuf, process::exit};
+
+const SZ_UNIT: [&str; 7] = ["B", "K", "M", "G", "T", "P", "E"];
 
 #[derive(Parser)]
 #[command(name = "fcnt")]
@@ -22,6 +24,28 @@ struct CmdLineArgs {
     count_size: bool,
 }
 
+impl CmdLineArgs {
+    fn get_directories(&self) -> Vec<PathBuf> {
+        let mut directories: Vec<PathBuf> = Vec::new();
+        if self.directories.is_empty() {
+            directories.push(env::current_dir().unwrap());
+        } else {
+            for dir in self.directories.iter().map(|p| PathBuf::from(p)) {
+                if dir.is_dir() {
+                    directories.push(dir);
+                } else {
+                    println!("wrong arg: {:?} is not directory.", dir);
+                }
+            }
+            if directories.is_empty() {
+                println!("error: non directories.");
+                exit(1);
+            }
+        }
+        return directories;
+    }
+}
+
 #[allow(unused)]
 pub struct Counter {
     pub n_files: u64,
@@ -36,6 +60,41 @@ impl Counter {
             n_dirs: 0,
             size: 0,
         };
+    }
+
+    // the total block size used by a file
+    pub fn file_size(metadata: &fs::Metadata) -> u64 {
+        let sz = metadata.st_size() as f64;
+        let blksz = metadata.st_blksize() as f64;
+        return (blksz * (sz / blksz).ceil()) as u64;
+    }
+
+    pub fn readable_size(size: u64) -> String {
+        let mut sz = size as f64;
+        let mut str_sz = String::new();
+
+        for unit in SZ_UNIT {
+            if sz >= 1024.0 {
+                sz = sz / 1024.0;
+            } else {
+                if sz.fract() < 0.1 {
+                    str_sz = format!("{:.0}{}", sz, unit);
+                } else {
+                    str_sz = format!("{:.1}{}", sz, unit);
+                }
+                break;
+            }
+        }
+        return str_sz;
+    }
+
+    pub fn walk_dir(&mut self, dirpath: PathBuf) {
+        for entry in Walker::new(&dirpath) {
+            let path = entry.path();
+            if path.is_dir() {
+                self.n_dirs += 1;
+            }
+        }
     }
 }
 
@@ -68,10 +127,8 @@ impl Iterator for Walker {
                 if entry.path().is_dir() {
                     let sub_reader = fs::read_dir(&entry.path()).unwrap();
                     self.readers.push(sub_reader);
-                    return self.next();
-                } else {
-                    return Some(entry);
                 }
+                return Some(entry);
             } else {
                 self.readers.remove(0);
                 return self.next();
@@ -80,42 +137,30 @@ impl Iterator for Walker {
     }
 }
 
-// the total block size used by a file
-fn file_size(metadata: &fs::Metadata) -> u64 {
-    let sz = metadata.st_size() as f64;
-    let blksz = metadata.st_blksize() as f64;
-    return (blksz * (sz / blksz).ceil()) as u64;
-}
-
 fn main() {
+    // parse cmd-line args and get directories
     let args = CmdLineArgs::parse();
+    let directories = args.get_directories();
 
-    // get the directories
-    let mut directories: Vec<PathBuf> = Vec::new();
-    if args.directories.is_empty() {
-        directories.push(env::current_dir().unwrap());
-    } else {
-        for dir in args.directories.iter().map(|p| PathBuf::from(p)) {
-            if dir.is_dir() {
-                directories.push(dir);
-            } else {
-                println!("{:?} is not directory.", dir);
-            }
-        }
-    }
-
+    // walk all files in the directories
     for dir in directories {
-        let walker = Walker::new(&dir);
-        for entry in walker {
-            if let Ok(meta) = entry.metadata() {
+        for entry in Walker::new(&dir) {
+            if let Ok(_meta) = entry.metadata() {
                 if let Some(name) = entry.path().file_name() {
-                    println!("{:?}: {:?}", name, file_size(&meta));
+                    println!("{:?}: ", name);
                 }
             }
         }
     }
+}
 
-    println!("all_files: {:?}", args.all_files);
-    println!("count_dirs: {:?}", args.count_dirs);
-    println!("count_size: {:?}", args.count_size);
+#[test]
+fn test_readable_size() {
+    assert_eq!(Counter::readable_size(1023), "1023B");
+    assert_eq!(Counter::readable_size(1434), "1.4K");
+    assert_eq!(Counter::readable_size(15926), "15.6K");
+    assert_eq!(Counter::readable_size(53589793), "51.1M");
+    assert_eq!(Counter::readable_size(238462643383), "222G");
+    assert_eq!(Counter::readable_size(279502884197169), "254.2T");
+    assert_eq!(Counter::readable_size(0xffffffffffffffff), "16E");
 }
