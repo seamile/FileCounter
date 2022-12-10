@@ -1,5 +1,11 @@
 use clap::Parser;
-use std::{env, fs, os::macos::fs::MetadataExt, path::PathBuf, process::exit};
+use std::collections::HashSet;
+use std::env;
+use std::fmt;
+use std::fs;
+use std::os::macos::fs::MetadataExt;
+use std::path::PathBuf;
+use std::process::exit;
 
 const SZ_UNIT: [&str; 7] = ["B", "K", "M", "G", "T", "P", "E"];
 
@@ -51,6 +57,7 @@ pub struct Counter {
     pub n_files: u64,
     pub n_dirs: u64,
     pub size: u64,
+    inodes: HashSet<u64>,
 }
 
 impl Counter {
@@ -59,18 +66,20 @@ impl Counter {
             n_files: 0,
             n_dirs: 0,
             size: 0,
+            inodes: HashSet::new(),
         };
     }
 
     // the total block size used by a file
-    pub fn file_size(metadata: &fs::Metadata) -> u64 {
+    fn file_size(metadata: &fs::Metadata) -> u64 {
         let sz = metadata.st_size() as f64;
         let blksz = metadata.st_blksize() as f64;
         return (blksz * (sz / blksz).ceil()) as u64;
     }
 
-    pub fn readable_size(size: u64) -> String {
-        let mut sz = size as f64;
+    // Make "size" more readable
+    fn readable_size(&self) -> String {
+        let mut sz = self.size as f64;
         let mut str_sz = String::new();
 
         for unit in SZ_UNIT {
@@ -88,13 +97,38 @@ impl Counter {
         return str_sz;
     }
 
-    pub fn walk_dir(&mut self, dirpath: PathBuf) {
-        for entry in Walker::new(&dirpath) {
-            let path = entry.path();
-            if path.is_dir() {
-                self.n_dirs += 1;
+    // count a entry
+    pub fn count(&mut self, entry: fs::DirEntry) {
+        let path = entry.path();
+
+        if path.is_symlink() {
+            // ignore the size of symbolic link
+            self.n_files += 1;
+        } else if path.is_file() {
+            let Ok(meta) = entry.metadata() else {return;};
+            if self.inodes.insert(meta.st_ino()) {
+                // count the number and the size of regular file
+                self.n_files += 1;
+                self.size += Counter::file_size(&meta);
+            } else {
+                // ignore the size of hard link
+                self.n_files += 1;
             }
+        } else if path.is_dir() {
+            self.n_dirs += 1;
         }
+    }
+}
+
+impl fmt::Display for Counter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        return write!(
+            f,
+            "files: {}  dirs: {}  size: {}",
+            self.n_files,
+            self.n_dirs,
+            self.readable_size()
+        );
     }
 }
 
@@ -144,23 +178,29 @@ fn main() {
 
     // walk all files in the directories
     for dir in directories {
+        let mut counter = Counter::new();
         for entry in Walker::new(&dir) {
-            if let Ok(_meta) = entry.metadata() {
-                if let Some(name) = entry.path().file_name() {
-                    println!("{:?}: ", name);
-                }
-            }
+            counter.count(entry);
         }
+        println!("{}: {}", dir.to_string_lossy(), counter);
     }
 }
 
 #[test]
 fn test_readable_size() {
-    assert_eq!(Counter::readable_size(1023), "1023B");
-    assert_eq!(Counter::readable_size(1434), "1.4K");
-    assert_eq!(Counter::readable_size(15926), "15.6K");
-    assert_eq!(Counter::readable_size(53589793), "51.1M");
-    assert_eq!(Counter::readable_size(238462643383), "222G");
-    assert_eq!(Counter::readable_size(279502884197169), "254.2T");
-    assert_eq!(Counter::readable_size(0xffffffffffffffff), "16E");
+    let mut c = Counter::new();
+    c.size = 1023;
+    assert_eq!(c.readable_size(), "1023B");
+    c.size = 1434;
+    assert_eq!(c.readable_size(), "1.4K");
+    c.size = 15926;
+    assert_eq!(c.readable_size(), "15.6K");
+    c.size = 53589793;
+    assert_eq!(c.readable_size(), "51.1M");
+    c.size = 238462643383;
+    assert_eq!(c.readable_size(), "222G");
+    c.size = 279502884197169;
+    assert_eq!(c.readable_size(), "254.2T");
+    c.size = 0xffffffffffffffff;
+    assert_eq!(c.readable_size(), "16E");
 }
