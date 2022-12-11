@@ -1,3 +1,5 @@
+pub mod color;
+
 use clap::Parser;
 use std::collections::HashSet;
 use std::env;
@@ -6,8 +8,6 @@ use std::fs;
 use std::os::macos::fs::MetadataExt;
 use std::path::PathBuf;
 use std::process::exit;
-
-const SZ_UNIT: [&str; 7] = ["B", "K", "M", "G", "T", "P", "E"];
 
 #[derive(Parser)]
 #[command(name = "fcnt")]
@@ -40,11 +40,12 @@ impl CmdLineArgs {
                 if dir.is_dir() {
                     directories.push(dir);
                 } else {
-                    println!("wrong arg: {:?} is not directory.", dir);
+                    let msg = format!("fcnt: {:?} is not directory.", dir);
+                    println!("{}", color::err(&msg));
                 }
             }
             if directories.is_empty() {
-                println!("error: non directories.");
+                println!("{}", color::err(&"fcnt: non directories."));
                 exit(1);
             }
         }
@@ -52,8 +53,7 @@ impl CmdLineArgs {
     }
 }
 
-#[allow(unused)]
-pub struct Counter {
+struct Counter {
     pub n_files: u64,
     pub n_dirs: u64,
     pub size: u64,
@@ -61,6 +61,8 @@ pub struct Counter {
 }
 
 impl Counter {
+    const SZ_UNIT: [&str; 7] = ["B", "K", "M", "G", "T", "P", "E"];
+
     pub fn new() -> Counter {
         return Counter {
             n_files: 0,
@@ -82,7 +84,7 @@ impl Counter {
         let mut sz = self.size as f64;
         let mut str_sz = String::new();
 
-        for unit in SZ_UNIT {
+        for unit in Counter::SZ_UNIT {
             if sz >= 1024.0 {
                 sz = sz / 1024.0;
             } else {
@@ -190,7 +192,7 @@ fn main() {
             counter.count(entry);
         }
         // println!("{:?}: {}", name, counter);
-        println!("{}", counter);
+        println!("{}", color::info(&counter));
     }
 }
 
