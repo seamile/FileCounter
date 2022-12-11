@@ -134,16 +134,22 @@ impl fmt::Display for Counter {
 
 // walk all the files in dir
 struct Walker {
-    readers: Vec<fs::ReadDir>,
+    dirs: Vec<PathBuf>,
+    reader: fs::ReadDir,
 }
 
 impl Walker {
-    pub fn new(dirpath: &PathBuf) -> Walker {
+    pub fn new(dirpath: PathBuf) -> Walker {
         if dirpath.is_dir() {
-            let rd = fs::read_dir(dirpath).unwrap();
-            return Walker { readers: vec![rd] };
+            match fs::read_dir(&dirpath) {
+                Ok(rd) => Walker {
+                    dirs: vec![dirpath],
+                    reader: rd,
+                },
+                Err(msg) => panic!("error: {}", msg),
+            }
         } else {
-            panic!("the {:?} is not a directory.", dirpath);
+            panic!("error: the {:?} is not a directory.", dirpath);
         }
     }
 }
@@ -152,22 +158,23 @@ impl Iterator for Walker {
     type Item = fs::DirEntry;
 
     fn next(&mut self) -> Option<fs::DirEntry> {
-        if self.readers.is_empty() {
-            return None;
-        } else {
-            let reader = &mut self.readers[0];
-            if let Some(entry) = reader.next() {
-                let entry: fs::DirEntry = entry.unwrap();
-                if entry.path().is_dir() {
-                    let sub_reader = fs::read_dir(&entry.path()).unwrap();
-                    self.readers.push(sub_reader);
+        if let Some(entry) = self.reader.next() {
+            match entry {
+                Ok(entry) => {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        self.dirs.push(path);
+                    };
+                    return Some(entry);
                 }
-                return Some(entry);
-            } else {
-                self.readers.remove(0);
-                return self.next();
+                Err(msg) => panic!("error: {}", msg),
             }
-        }
+        } else if let Some(path) = self.dirs.pop() {
+            self.reader = fs::read_dir(path).unwrap();
+            return self.next();
+        } else {
+            return None;
+        };
     }
 }
 
@@ -179,10 +186,11 @@ fn main() {
     // walk all files in the directories
     for dir in directories {
         let mut counter = Counter::new();
-        for entry in Walker::new(&dir) {
+        for entry in Walker::new(dir) {
             counter.count(entry);
         }
-        println!("{}: {}", dir.to_string_lossy(), counter);
+        // println!("{:?}: {}", name, counter);
+        println!("{}", counter);
     }
 }
 
