@@ -88,7 +88,7 @@ impl Counter {
             if sz >= 1024.0 {
                 sz = sz / 1024.0;
             } else {
-                if sz.fract() < 0.1 {
+                if sz.fract() < 0.05 {
                     str_sz = format!("{:.0}{}", sz, unit);
                 } else {
                     str_sz = format!("{:.1}{}", sz, unit);
@@ -208,7 +208,7 @@ fn test_readable_size() {
     c.size = 53589793;
     assert_eq!(c.readable_size(), "51.1M");
     c.size = 238462643383;
-    assert_eq!(c.readable_size(), "222G");
+    assert_eq!(c.readable_size(), "222.1G");
     c.size = 279502884197169;
     assert_eq!(c.readable_size(), "254.2T");
     c.size = 0xffffffffffffffff;
