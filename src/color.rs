@@ -11,6 +11,7 @@ pub enum Effect {
     Hidden = 8,
 }
 
+#[allow(unused)]
 impl Effect {
     pub fn bold(arg: &dyn Display, color: Color) -> String {
         color_me(arg, color, Effect::Bold)
@@ -53,6 +54,7 @@ pub enum Color {
     Default = 99,
 }
 
+#[allow(unused)]
 impl Color {
     pub fn black(arg: &dyn Display, effect: Effect) -> String {
         return color_me(arg, Color::Black, effect);
@@ -104,22 +106,27 @@ impl Color {
     }
 }
 
+#[allow(unused)]
 pub fn color_me(arg: &dyn Display, color: Color, effect: Effect) -> String {
     return format!("\x1b[{};{}m{}\x1b[0m", effect as u8, color as u8, arg);
 }
 
+#[allow(unused)]
 pub fn title(arg: &dyn Display) -> String {
     color_me(arg, Color::Default, Effect::Underline)
 }
 
+#[allow(unused)]
 pub fn info(arg: &dyn Display) -> String {
     color_me(arg, Color::BrightBlue, Effect::Default)
 }
 
+#[allow(unused)]
 pub fn warn(arg: &dyn Display) -> String {
     color_me(arg, Color::Yellow, Effect::Default)
 }
 
+#[allow(unused)]
 pub fn err(arg: &dyn Display) -> String {
     color_me(arg, Color::Red, Effect::Default)
 }
