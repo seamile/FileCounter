@@ -1,5 +1,6 @@
 mod color;
 mod walker;
+mod worker;
 
 use clap::Parser;
 use std::env;
@@ -7,6 +8,23 @@ use std::path::PathBuf;
 use std::process::exit;
 // use std::sync::mpsc::channel;
 // use std::thread;
+
+fn main() {
+    // parse cmd-line args and get directories
+    let args = CmdLineArgs::parse();
+
+    // walk all files
+    let directories = args.get_directories();
+    if args.non_recursive {
+        for dirpath in directories {
+            if let Ok((_, counter)) = walker::walk(&dirpath, !args.all_files, args.count_size) {
+                println!("{}", counter)
+            };
+        }
+    } else {
+        println!("coming soon")
+    }
+}
 
 #[derive(Parser)]
 #[command(name = "fcnt")]
@@ -20,13 +38,13 @@ struct CmdLineArgs {
     #[arg(short = 'a')]
     all_files: bool,
 
-    /// count the number of directories.
-    #[arg(short = 'd')]
-    count_dirs: bool,
-
     /// count the total size of files.
     #[arg(short = 's')]
     count_size: bool,
+
+    /// non-recursive mode (files in sub-directories will be ignored).
+    #[arg(short = 'R')]
+    non_recursive: bool,
 }
 
 impl CmdLineArgs {
@@ -49,23 +67,5 @@ impl CmdLineArgs {
             }
         }
         return directories;
-    }
-}
-
-fn main() {
-    // parse cmd-line args and get directories
-    let args = CmdLineArgs::parse();
-
-    // walk all files
-    let directories = args.get_directories();
-    for dirpath in directories {
-        if let Ok((_, counter)) = walker::walk(&dirpath, args.count_size) {
-            println!(
-                "n_files: {} n_dirs: {} size: {}",
-                counter.n_files,
-                counter.n_dirs,
-                counter.readable_size()
-            )
-        };
     }
 }

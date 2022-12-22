@@ -1,9 +1,16 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::io::Result;
-use std::os::macos::fs::MetadataExt;
 use std::path::PathBuf;
+
+#[cfg(target_os = "linux")]
+use std::os::linux::fs::MetadataExt;
+#[cfg(target_os = "macos")]
+use std::os::macos::fs::MetadataExt;
+#[cfg(target_os = "unix")]
+use std::os::unix::fs::MetadataExt;
 
 type DirList = Vec<PathBuf>;
 type SizeMap = HashMap<u64, u64>;
@@ -26,6 +33,16 @@ impl Counter {
             n_dirs: 0,
             sz_map: SizeMap::new(),
         };
+    }
+
+    pub fn name(&self) -> Cow<str> {
+        if let Some(dirname) = self.dirpath.file_name() {
+            return dirname.to_string_lossy();
+        } else if let Some(dirname) = self.dirpath.to_str() {
+            return Cow::from(dirname);
+        } else {
+            return Cow::from("-");
+        }
     }
 
     fn file_size(metadata: &fs::Metadata) -> u64 {
@@ -72,7 +89,8 @@ impl fmt::Display for Counter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         return write!(
             f,
-            "files: {}  dirs: {}  size: {}",
+            "{:10}: {:5} files | {:5} dirs | {}",
+            self.name(),
             self.n_files,
             self.n_dirs,
             self.readable_size()
@@ -80,22 +98,29 @@ impl fmt::Display for Counter {
     }
 }
 
-pub fn walk(dirpath: &PathBuf, count_sz: bool) -> Result<(DirList, Counter)> {
+pub fn walk(dirpath: &PathBuf, ignore_hidden: bool, count_sz: bool) -> Result<(DirList, Counter)> {
     let mut dirs = DirList::new();
     let mut cnt = Counter::new(dirpath);
 
     for entry in fs::read_dir(dirpath)? {
         let entry = entry?;
         let path = entry.path();
-        if path.is_dir() {
-            if let Ok(res) = walk(&path, count_sz) {
-                cnt.update(res.1);
-            };
-            dirs.push(path);
+        let fname = entry.file_name();
+
+        if ignore_hidden && fname.to_string_lossy().starts_with('.') {
+            // ignore the hidden files and dirs
+            continue;
+        } else if path.is_symlink() {
+            // The size of symbolic link is 0B.
+            // So just increase the num of files here.
+            cnt.n_files += 1;
+        } else if path.is_dir() {
             cnt.n_dirs += 1;
+            dirs.push(path);
         } else {
             cnt.n_files += 1;
             if count_sz {
+                // count file size and insert into SizeMap
                 let meta = entry.metadata()?;
                 cnt.sz_map.insert(meta.st_ino(), Counter::file_size(&meta));
             }
@@ -107,7 +132,7 @@ pub fn walk(dirpath: &PathBuf, count_sz: bool) -> Result<(DirList, Counter)> {
 
 #[test]
 fn test_walk() {
-    walk(&PathBuf::from("/Users/xu/src/"), false);
+    // walk(&PathBuf::from("/Users/xu/src/"), false);
 }
 
 #[test]
