@@ -14,6 +14,7 @@ use std::os::unix::fs::MetadataExt;
 
 type DirList = Vec<PathBuf>;
 type SizeMap = HashMap<u64, u64>;
+pub type DirDetail = (DirList, Counter);
 
 pub struct Counter {
     pub dirpath: PathBuf,
@@ -98,7 +99,7 @@ impl fmt::Display for Counter {
     }
 }
 
-pub fn walk(dirpath: &PathBuf, ignore_hidden: bool, count_sz: bool) -> Result<(DirList, Counter)> {
+pub fn walk(dirpath: &PathBuf, ignore_hidden: bool, count_sz: bool) -> Result<DirDetail> {
     let mut dirs = DirList::new();
     let mut cnt = Counter::new(dirpath);
 
