@@ -3,7 +3,12 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::io::Result;
+use std::iter::repeat;
 use std::path::PathBuf;
+use std::thread;
+
+use flume::unbounded as channel;
+use num_cpus::get as cpu_count;
 
 #[cfg(target_os = "linux")]
 use std::os::linux::fs::MetadataExt;
@@ -21,6 +26,18 @@ pub struct Counter {
     pub n_files: u64,
     pub n_dirs: u64,
     pub sz_map: SizeMap,
+}
+
+// impl Copy for Counter {}
+impl Clone for Counter {
+    fn clone(&self) -> Self {
+        return Counter {
+            dirpath: self.dirpath.clone(),
+            n_files: self.n_files.clone(),
+            n_dirs: self.n_dirs.clone(),
+            sz_map: self.sz_map.clone(),
+        };
+    }
 }
 
 #[allow(unused)]
@@ -76,12 +93,12 @@ impl Counter {
         return str_sz;
     }
 
-    // update from anther Counter of sub-dir
-    pub fn update(&mut self, other: Counter) {
+    // merge from anther Counter
+    pub fn merge(&mut self, other: &Counter) {
         if other.dirpath.starts_with(&self.dirpath) {
             self.n_files += other.n_files;
             self.n_dirs += other.n_dirs;
-            self.sz_map.extend(other.sz_map);
+            // self.sz_map.extend(other.sz_map);
         }
     }
 }
@@ -131,9 +148,70 @@ pub fn walk(dirpath: &PathBuf, ignore_hidden: bool, count_sz: bool) -> Result<Di
     return Ok((dirs, cnt));
 }
 
+#[allow(unused)]
+pub fn parallel_walk(dirlist: Vec<PathBuf>, ignore_hidden: bool, count_sz: bool) {
+    let n_threads = cpu_count();
+    let mut thread_hdlrs = vec![];
+    let (path_tx, path_rx) = channel::<PathBuf>();
+    let (cnt_tx, cnt_rx) = channel::<Counter>();
+    let idle_stats = Vec::from_iter(repeat(true).take(n_threads));
+    let mut counters = Vec::from_iter(dirlist.iter().map(|p| Counter::new(p)));
+
+    // send dirlist to path channel
+    for path in dirlist {
+        path_tx.send(path.clone()).expect("path send err");
+    }
+
+    // create walk threads which amount is n_threads
+    for _ in 0..n_threads {
+        // clone channels
+        let _path_tx = path_tx.clone();
+        let _path_rx = path_rx.clone();
+        let _cnt_tx = cnt_tx.clone();
+
+        // create walk threads
+        let walk_thread_hdlr = thread::Builder::new()
+            .spawn(move || {
+                // get a dir path to traverse
+                for dirpath in _path_rx.recv() {
+                    // traverse all files in the directory
+                    if let Ok((sub_dirs, sub_cnt)) = walk(&dirpath, ignore_hidden, count_sz) {
+                        // send the result back
+                        for path in sub_dirs {
+                            _path_tx.send(path.clone()).expect("path send err");
+                        }
+                        // send the counter of dirpath
+                        _cnt_tx.send(sub_cnt).expect("counter send err");
+                    }
+                }
+            })
+            .expect("create thread err");
+        thread_hdlrs.push(walk_thread_hdlr);
+    }
+
+    // get the result
+
+    while let Ok(cnt) = &cnt_rx.recv() {
+        for _cnt in &mut counters {
+            _cnt.merge(cnt);
+        }
+
+        if cnt_rx.is_empty() && idle_stats.iter().all(|s| *s) {
+            break;
+        }
+    }
+
+    // return counters;
+}
+
 #[test]
-fn test_walk() {
-    // walk(&PathBuf::from("/Users/xu/src/"), false);
+fn test_any() {
+    let mut v = vec![100, 32, 57];
+    for i in &mut v {
+        *i += 50;
+    }
+
+    println!("{:?}", v);
 }
 
 #[test]

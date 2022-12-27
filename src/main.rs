@@ -1,6 +1,5 @@
 mod color;
 mod walker;
-mod worker;
 
 use clap::Parser;
 use std::env;
