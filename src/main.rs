@@ -5,8 +5,6 @@ use clap::Parser;
 use std::env;
 use std::path::PathBuf;
 use std::process::exit;
-// use std::sync::mpsc::channel;
-// use std::thread;
 
 fn main() {
     // parse cmd-line args and get directories
@@ -16,12 +14,12 @@ fn main() {
     let directories = args.get_directories();
     if args.non_recursive {
         for dirpath in directories {
-            if let Ok((_, counter)) = walker::walk(&dirpath, !args.all_files, args.count_size) {
+            if let Ok((_, counter)) = walker::walk(&dirpath, args.all_files, args.count_size) {
                 println!("{}", counter)
             };
         }
     } else {
-        println!("coming soon")
+        walker::parallel_walk(directories, args.all_files, args.count_size);
     }
 }
 

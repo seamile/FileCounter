@@ -3,11 +3,14 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::io::Result;
-use std::iter::repeat;
 use std::path::PathBuf;
+use std::sync::mpsc::channel as s_channel;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread;
+use std::time::Duration;
 
-use flume::unbounded as channel;
+use flume::unbounded as m_channel;
 use num_cpus::get as cpu_count;
 
 #[cfg(target_os = "linux")]
@@ -21,23 +24,12 @@ type DirList = Vec<PathBuf>;
 type SizeMap = HashMap<u64, u64>;
 pub type DirDetail = (DirList, Counter);
 
+#[derive(Debug)]
 pub struct Counter {
     pub dirpath: PathBuf,
     pub n_files: u64,
     pub n_dirs: u64,
     pub sz_map: SizeMap,
-}
-
-// impl Copy for Counter {}
-impl Clone for Counter {
-    fn clone(&self) -> Self {
-        return Counter {
-            dirpath: self.dirpath.clone(),
-            n_files: self.n_files.clone(),
-            n_dirs: self.n_dirs.clone(),
-            sz_map: self.sz_map.clone(),
-        };
-    }
 }
 
 #[allow(unused)]
@@ -116,7 +108,7 @@ impl fmt::Display for Counter {
     }
 }
 
-pub fn walk(dirpath: &PathBuf, ignore_hidden: bool, count_sz: bool) -> Result<DirDetail> {
+pub fn walk(dirpath: &PathBuf, with_hidden: bool, count_sz: bool) -> Result<DirDetail> {
     let mut dirs = DirList::new();
     let mut cnt = Counter::new(dirpath);
 
@@ -125,8 +117,9 @@ pub fn walk(dirpath: &PathBuf, ignore_hidden: bool, count_sz: bool) -> Result<Di
         let path = entry.path();
         let fname = entry.file_name();
 
-        if ignore_hidden && fname.to_string_lossy().starts_with('.') {
+        if !with_hidden && fname.to_string_lossy().starts_with('.') {
             // ignore the hidden files and dirs
+            // println!("ignore path: {:?}", path);
             continue;
         } else if path.is_symlink() {
             // The size of symbolic link is 0B.
@@ -148,14 +141,14 @@ pub fn walk(dirpath: &PathBuf, ignore_hidden: bool, count_sz: bool) -> Result<Di
     return Ok((dirs, cnt));
 }
 
-#[allow(unused)]
-pub fn parallel_walk(dirlist: Vec<PathBuf>, ignore_hidden: bool, count_sz: bool) {
+type Locker = Arc<Mutex<HashMap<usize, bool>>>;
+
+pub fn parallel_walk(dirlist: Vec<PathBuf>, with_hidden: bool, count_sz: bool) {
     let n_threads = cpu_count();
-    let mut thread_hdlrs = vec![];
-    let (path_tx, path_rx) = channel::<PathBuf>();
-    let (cnt_tx, cnt_rx) = channel::<Counter>();
-    let idle_stats = Vec::from_iter(repeat(true).take(n_threads));
+    let (path_tx, path_rx) = m_channel::<PathBuf>();
+    let (cnt_tx, cnt_rx) = s_channel::<Counter>();
     let mut counters = Vec::from_iter(dirlist.iter().map(|p| Counter::new(p)));
+    let stat_locker: Locker = Arc::new(Mutex::new(HashMap::new()));
 
     // send dirlist to path channel
     for path in dirlist {
@@ -163,45 +156,74 @@ pub fn parallel_walk(dirlist: Vec<PathBuf>, ignore_hidden: bool, count_sz: bool)
     }
 
     // create walk threads which amount is n_threads
-    for _ in 0..n_threads {
+    for t_idx in 0..n_threads {
         // clone channels
         let _path_tx = path_tx.clone();
         let _path_rx = path_rx.clone();
         let _cnt_tx = cnt_tx.clone();
+        let _lock = stat_locker.clone();
 
         // create walk threads
-        let walk_thread_hdlr = thread::Builder::new()
+        thread::Builder::new()
             .spawn(move || {
                 // get a dir path to traverse
-                for dirpath in _path_rx.recv() {
+                for dirpath in _path_rx {
+                    // switch stat to BUSY
+                    {
+                        let mut idle_stat = _lock.lock().expect("acquire lock err");
+                        idle_stat.insert(t_idx, false);
+                    }
+
                     // traverse all files in the directory
-                    if let Ok((sub_dirs, sub_cnt)) = walk(&dirpath, ignore_hidden, count_sz) {
-                        // send the result back
-                        for path in sub_dirs {
-                            _path_tx.send(path.clone()).expect("path send err");
-                        }
-                        // send the counter of dirpath
-                        _cnt_tx.send(sub_cnt).expect("counter send err");
+                    let (sub_dirs, sub_cnt) = walk(&dirpath, with_hidden, count_sz)
+                        .expect(format!("{} Error", &dirpath.to_string_lossy()).as_str());
+
+                    // send the sub_dirs and the sub_counter back
+                    for path in sub_dirs {
+                        _path_tx.send(path.clone()).expect("path send err");
+                    }
+                    _cnt_tx.send(sub_cnt).expect("counter send err");
+
+                    // println!("T-{}: finish {:?}", t_idx, dirpath);
+
+                    // switch stat to IDLE
+                    {
+                        let mut idle_stat = _lock.lock().expect("acquire lock err");
+                        idle_stat.insert(t_idx, true);
                     }
                 }
+                // println!("T-{} exit", t_idx);
             })
             .expect("create thread err");
-        thread_hdlrs.push(walk_thread_hdlr);
+    }
+
+    // check the status
+    loop {
+        let is_idle: bool;
+        {
+            let idle_stat = stat_locker.lock().expect("acquire lock err");
+            is_idle = idle_stat.values().all(|st| st == &true);
+        }
+
+        if is_idle && path_rx.is_empty() {
+            // println!("--- the end ---");
+            break;
+        } else {
+            // println!("waitting 100ms.");
+            thread::sleep(Duration::from_millis(100));
+        }
     }
 
     // get the result
-
-    while let Ok(cnt) = &cnt_rx.recv() {
+    while let Ok(cnt) = cnt_rx.try_recv() {
+        // println!("merge dir: {:?}", cnt.dirpath);
         for _cnt in &mut counters {
-            _cnt.merge(cnt);
-        }
-
-        if cnt_rx.is_empty() && idle_stats.iter().all(|s| *s) {
-            break;
+            // println!("{}", cnt);
+            _cnt.merge(&cnt);
         }
     }
 
-    // return counters;
+    println!("{:?}", counters);
 }
 
 #[test]
