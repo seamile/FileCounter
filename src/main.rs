@@ -15,7 +15,7 @@ fn main() {
     if args.non_recursive {
         for dirpath in directories {
             if let Ok((_, counter)) = walker::walk(&dirpath, args.all_files, args.count_size) {
-                println!("{}", counter)
+                println!("{}", counter);
             };
         }
     } else {

@@ -26,10 +26,10 @@ pub type DirDetail = (DirList, Counter);
 
 #[derive(Debug)]
 pub struct Counter {
-    pub dirpath: PathBuf,
-    pub n_files: u64,
-    pub n_dirs: u64,
-    pub sz_map: SizeMap,
+    dirpath: PathBuf,
+    n_files: u64,
+    n_dirs: u64,
+    sz_map: SizeMap,
 }
 
 #[allow(unused)]
@@ -90,7 +90,7 @@ impl Counter {
         if other.dirpath.starts_with(&self.dirpath) {
             self.n_files += other.n_files;
             self.n_dirs += other.n_dirs;
-            // self.sz_map.extend(other.sz_map);
+            self.sz_map.extend(other.sz_map.iter());
         }
     }
 }
@@ -223,7 +223,9 @@ pub fn parallel_walk(dirlist: Vec<PathBuf>, with_hidden: bool, count_sz: bool) {
         }
     }
 
-    println!("{:?}", counters);
+    for cnt in counters {
+        println!("{}", cnt);
+    }
 }
 
 #[test]
