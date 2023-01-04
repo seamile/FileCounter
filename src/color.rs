@@ -131,6 +131,56 @@ pub fn err(arg: &dyn Display) -> String {
     color_me(arg, Color::Red, Effect::Default)
 }
 
+fn spaces(width: usize) -> String {
+    return String::from_utf8(vec![32_u8; width]).unwrap();
+}
+
+#[allow(unused)]
+pub fn align_center(mut string: String, width: usize) -> String {
+    let len = string.len();
+    if len < width {
+        let n_fill = width - string.len();
+        if n_fill % 2 == 0 {
+            let fill = spaces(n_fill / 2);
+            string.insert_str(len, &fill);
+            string.insert_str(0, &fill);
+        } else {
+            string.insert_str(len, &spaces(n_fill / 2 + 1));
+            string.insert_str(0, &spaces(n_fill / 2));
+        }
+    }
+    return string;
+}
+
+#[allow(unused)]
+pub fn align_left(mut string: String, width: usize) -> String {
+    let len = string.len();
+    if len < width {
+        let n_fill = width - string.len();
+        string.insert_str(len, &spaces(n_fill));
+    }
+    return string;
+}
+
+#[allow(unused)]
+pub fn align_right(mut string: String, width: usize) -> String {
+    let len = string.len();
+    if len < width {
+        let n_fill = width - string.len();
+        string.insert_str(0, &spaces(n_fill));
+    }
+    return string;
+}
+
+#[test]
+fn test_align() {
+    let s = String::from("HelloWorld");
+    assert_eq!(align_center(s.clone(), 14), String::from("  HelloWorld  "));
+    assert_eq!(align_center(s.clone(), 15), String::from("  HelloWorld   "));
+    assert_eq!(align_left(s.clone(), 15), String::from("HelloWorld     "));
+    assert_eq!(align_right(s.clone(), 15), String::from("     HelloWorld"));
+}
+
 #[test]
 fn test_color() {
     let s = "Hello World";
