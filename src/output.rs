@@ -11,6 +11,7 @@ pub enum Effect {
     Hidden = 8,
 }
 
+#[allow(unused)]
 impl Effect {
     pub fn bold(arg: &dyn Display, color: Color) -> String {
         color_me(arg, color, Effect::Bold)
@@ -53,6 +54,7 @@ pub enum Color {
     Default = 99,
 }
 
+#[allow(unused)]
 impl Color {
     pub fn black(arg: &dyn Display, effect: Effect) -> String {
         return color_me(arg, Color::Black, effect);
@@ -104,24 +106,91 @@ impl Color {
     }
 }
 
+#[allow(unused)]
 pub fn color_me(arg: &dyn Display, color: Color, effect: Effect) -> String {
     return format!("\x1b[{};{}m{}\x1b[0m", effect as u8, color as u8, arg);
 }
 
+#[allow(unused)]
 pub fn title(arg: &dyn Display) -> String {
-    color_me(arg, Color::Default, Effect::Underline)
+    color_me(arg, Color::Yellow, Effect::Underline)
 }
 
+#[allow(unused)]
 pub fn info(arg: &dyn Display) -> String {
     color_me(arg, Color::BrightBlue, Effect::Default)
 }
 
+#[allow(unused)]
 pub fn warn(arg: &dyn Display) -> String {
     color_me(arg, Color::Yellow, Effect::Default)
 }
 
+#[allow(unused)]
 pub fn err(arg: &dyn Display) -> String {
     color_me(arg, Color::Red, Effect::Default)
+}
+
+fn spaces(width: usize) -> String {
+    return String::from_utf8(vec![32_u8; width]).unwrap();
+}
+
+#[allow(unused)]
+pub fn align_center(s: &dyn ToString, width: usize) -> String {
+    let mut string = s.to_string();
+    let len = string.len();
+    if len < width {
+        let n_fill = width - string.len();
+        if n_fill % 2 == 0 {
+            let fill = spaces(n_fill / 2);
+            string.insert_str(len, &fill);
+            string.insert_str(0, &fill);
+        } else {
+            string.insert_str(len, &spaces(n_fill / 2 + 1));
+            string.insert_str(0, &spaces(n_fill / 2));
+        }
+    }
+    return string;
+}
+
+#[allow(unused)]
+pub fn align_left(s: &dyn ToString, width: usize) -> String {
+    let mut string = s.to_string();
+    let len = string.len();
+    if len < width {
+        let n_fill = width - string.len();
+        string.insert_str(len, &spaces(n_fill));
+    }
+    return string;
+}
+
+#[allow(unused)]
+pub fn align_right(s: &dyn ToString, width: usize) -> String {
+    let mut string = s.to_string();
+    let len = string.len();
+    if len < width {
+        let n_fill = width - string.len();
+        string.insert_str(0, &spaces(n_fill));
+    }
+    return string;
+}
+
+#[test]
+fn test_align() {
+    let s = "HelloWorld";
+    assert_eq!(align_center(&s, 14), String::from("  HelloWorld  "));
+    assert_eq!(align_center(&s, 15), String::from("  HelloWorld   "));
+    assert_eq!(align_left(&s, 15), String::from("HelloWorld     "));
+    assert_eq!(align_right(&s, 15), String::from("     HelloWorld"));
+
+    let t = vec![
+        align_left(&"Name", 8),
+        align_right(&"Files", 5),
+        align_right(&"Dirs", 5),
+        align_right(&"Size", 9),
+    ]
+    .join(" ");
+    println!("{}", title(&t));
 }
 
 #[test]
