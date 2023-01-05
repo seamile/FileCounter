@@ -113,7 +113,7 @@ pub fn color_me(arg: &dyn Display, color: Color, effect: Effect) -> String {
 
 #[allow(unused)]
 pub fn title(arg: &dyn Display) -> String {
-    color_me(arg, Color::Default, Effect::Underline)
+    color_me(arg, Color::Yellow, Effect::Underline)
 }
 
 #[allow(unused)]
@@ -136,7 +136,8 @@ fn spaces(width: usize) -> String {
 }
 
 #[allow(unused)]
-pub fn align_center(mut string: String, width: usize) -> String {
+pub fn align_center(s: &dyn ToString, width: usize) -> String {
+    let mut string = s.to_string();
     let len = string.len();
     if len < width {
         let n_fill = width - string.len();
@@ -153,7 +154,8 @@ pub fn align_center(mut string: String, width: usize) -> String {
 }
 
 #[allow(unused)]
-pub fn align_left(mut string: String, width: usize) -> String {
+pub fn align_left(s: &dyn ToString, width: usize) -> String {
+    let mut string = s.to_string();
     let len = string.len();
     if len < width {
         let n_fill = width - string.len();
@@ -163,7 +165,8 @@ pub fn align_left(mut string: String, width: usize) -> String {
 }
 
 #[allow(unused)]
-pub fn align_right(mut string: String, width: usize) -> String {
+pub fn align_right(s: &dyn ToString, width: usize) -> String {
+    let mut string = s.to_string();
     let len = string.len();
     if len < width {
         let n_fill = width - string.len();
@@ -174,11 +177,20 @@ pub fn align_right(mut string: String, width: usize) -> String {
 
 #[test]
 fn test_align() {
-    let s = String::from("HelloWorld");
-    assert_eq!(align_center(s.clone(), 14), String::from("  HelloWorld  "));
-    assert_eq!(align_center(s.clone(), 15), String::from("  HelloWorld   "));
-    assert_eq!(align_left(s.clone(), 15), String::from("HelloWorld     "));
-    assert_eq!(align_right(s.clone(), 15), String::from("     HelloWorld"));
+    let s = "HelloWorld";
+    assert_eq!(align_center(&s, 14), String::from("  HelloWorld  "));
+    assert_eq!(align_center(&s, 15), String::from("  HelloWorld   "));
+    assert_eq!(align_left(&s, 15), String::from("HelloWorld     "));
+    assert_eq!(align_right(&s, 15), String::from("     HelloWorld"));
+
+    let t = vec![
+        align_left(&"Name", 8),
+        align_right(&"Files", 5),
+        align_right(&"Dirs", 5),
+        align_right(&"Size", 9),
+    ]
+    .join(" ");
+    println!("{}", title(&t));
 }
 
 #[test]

@@ -1,10 +1,11 @@
-mod color;
+mod output;
 mod walker;
 
 use clap::Parser;
-use std::env;
 use std::path::PathBuf;
 use std::process::exit;
+
+use walker::Counter;
 
 fn main() {
     // parse cmd-line args and get directories
@@ -12,15 +13,17 @@ fn main() {
 
     // walk all files
     let directories = args.get_directories();
+    let mut counters = Vec::<Counter>::new();
     if args.non_recursive {
         for dirpath in directories {
             if let Ok((_, counter)) = walker::walk(&dirpath, args.all_files, args.count_size) {
-                println!("{}", counter);
+                counters.push(counter);
             };
         }
     } else {
-        walker::parallel_walk(directories, args.all_files, args.count_size);
+        counters = walker::parallel_walk(directories, args.all_files, args.count_size);
     }
+    Counter::output(&counters, args.count_size);
 }
 
 #[derive(Parser)]
@@ -46,20 +49,20 @@ struct CmdLineArgs {
 
 impl CmdLineArgs {
     fn get_directories(&self) -> Vec<PathBuf> {
-        let mut directories: Vec<PathBuf> = Vec::new();
+        let mut directories: Vec<PathBuf> = vec![];
         if self.directories.is_empty() {
-            directories.push(env::current_dir().unwrap());
+            directories.push(PathBuf::from("./"));
         } else {
             for dir in self.directories.iter().map(|p| PathBuf::from(p)) {
                 if dir.is_dir() {
                     directories.push(dir);
                 } else {
                     let msg = format!("fcnt: {:?} is not directory.", dir);
-                    println!("{}", color::err(&msg));
+                    println!("{}", output::err(&msg));
                 }
             }
             if directories.is_empty() {
-                println!("{}", color::err(&"fcnt: non directories."));
+                println!("{}", output::err(&"fcnt: non directories."));
                 exit(1);
             }
         }

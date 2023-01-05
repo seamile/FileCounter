@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
@@ -20,6 +19,8 @@ use std::os::macos::fs::MetadataExt;
 #[cfg(target_os = "unix")]
 use std::os::unix::fs::MetadataExt;
 
+use crate::output as op;
+
 type DirList = Vec<PathBuf>;
 type SizeMap = HashMap<u64, u64>;
 pub type DirDetail = (DirList, Counter);
@@ -36,8 +37,8 @@ pub struct Counter {
 impl Counter {
     const SZ_UNIT: [&str; 7] = ["B", "K", "M", "G", "T", "P", "E"];
 
-    pub fn new(dirpath: &PathBuf) -> Counter {
-        return Counter {
+    pub fn new(dirpath: &PathBuf) -> Self {
+        return Self {
             dirpath: dirpath.clone(),
             n_files: 0,
             n_dirs: 0,
@@ -45,14 +46,8 @@ impl Counter {
         };
     }
 
-    pub fn name(&self) -> Cow<str> {
-        if let Some(dirname) = self.dirpath.file_name() {
-            return dirname.to_string_lossy();
-        } else if let Some(dirname) = self.dirpath.to_str() {
-            return Cow::from(dirname);
-        } else {
-            return Cow::from("-");
-        }
+    pub fn name(&self) -> &str {
+        return self.dirpath.to_str().expect("dir path err");
     }
 
     fn file_size(metadata: &fs::Metadata) -> u64 {
@@ -70,7 +65,7 @@ impl Counter {
         let mut sz = self.total_size() as f64;
         let mut str_sz = String::new();
 
-        for unit in Counter::SZ_UNIT {
+        for unit in Self::SZ_UNIT {
             if sz >= 1024.0 {
                 sz = sz / 1024.0;
             } else {
@@ -86,11 +81,72 @@ impl Counter {
     }
 
     // merge from anther Counter
-    pub fn merge(&mut self, other: &Counter) {
+    pub fn merge(&mut self, other: &Self) {
         if other.dirpath.starts_with(&self.dirpath) {
             self.n_files += other.n_files;
             self.n_dirs += other.n_dirs;
             self.sz_map.extend(other.sz_map.iter());
+        }
+    }
+
+    pub fn len(&self) -> (usize, usize, usize, usize) {
+        return (
+            self.name().len(),
+            self.n_files.to_string().len(),
+            self.n_dirs.to_string().len(),
+            self.readable_size().len(),
+        );
+    }
+
+    fn join_fields(
+        fields: Vec<&dyn ToString>,
+        lens: (usize, usize, usize, usize),
+        with_size: bool,
+    ) -> String {
+        if with_size {
+            return vec![
+                op::align_left(fields[0], lens.0),
+                op::align_right(fields[1], lens.1),
+                op::align_right(fields[2], lens.2),
+                op::align_right(fields[3], lens.3),
+            ]
+            .join("  ");
+        } else {
+            return vec![
+                op::align_left(fields[0], lens.0),
+                op::align_right(fields[1], lens.1),
+                op::align_right(fields[2], lens.2),
+            ]
+            .join("  ");
+        }
+    }
+
+    pub fn output(counters: &Vec<Self>, with_size: bool) {
+        let mut lines: Vec<String> = vec![];
+        let lens = counters
+            .iter()
+            .map(|c| c.len())
+            .map(|w| (w.0.max(4), w.1.max(5), w.2.max(4), w.3.max(4)))
+            .reduce(|m, n| (n.0.max(m.0), n.1.max(m.1), n.2.max(m.2), n.3.max(m.3)))
+            .unwrap();
+
+        // make title
+        let title = Self::join_fields(vec![&"Name", &"Files", &"Dirs", &"Size"], lens, with_size);
+        lines.push(op::title(&title));
+
+        // make content line
+        for cnt in counters {
+            let line = Self::join_fields(
+                vec![&cnt.name(), &cnt.n_files, &cnt.n_dirs, &cnt.readable_size()],
+                lens,
+                with_size,
+            );
+            lines.push(line);
+        }
+
+        // output
+        for line in lines {
+            println!("{}", line);
         }
     }
 }
@@ -99,7 +155,7 @@ impl fmt::Display for Counter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         return write!(
             f,
-            "{:10}: {:5} files | {:5} dirs | {}",
+            "{} : {} files, {} dirs, {}",
             self.name(),
             self.n_files,
             self.n_dirs,
@@ -119,7 +175,6 @@ pub fn walk(dirpath: &PathBuf, with_hidden: bool, count_sz: bool) -> Result<DirD
 
         if !with_hidden && fname.to_string_lossy().starts_with('.') {
             // ignore the hidden files and dirs
-            // println!("ignore path: {:?}", path);
             continue;
         } else if path.is_symlink() {
             // The size of symbolic link is 0B.
@@ -143,7 +198,7 @@ pub fn walk(dirpath: &PathBuf, with_hidden: bool, count_sz: bool) -> Result<DirD
 
 type Locker = Arc<Mutex<HashMap<usize, bool>>>;
 
-pub fn parallel_walk(dirlist: Vec<PathBuf>, with_hidden: bool, count_sz: bool) {
+pub fn parallel_walk(dirlist: Vec<PathBuf>, with_hidden: bool, count_sz: bool) -> Vec<Counter> {
     let n_threads = cpu_count();
     let (path_tx, path_rx) = m_channel::<PathBuf>();
     let (cnt_tx, cnt_rx) = s_channel::<Counter>();
@@ -184,15 +239,12 @@ pub fn parallel_walk(dirlist: Vec<PathBuf>, with_hidden: bool, count_sz: bool) {
                     }
                     _cnt_tx.send(sub_cnt).expect("counter send err");
 
-                    // println!("T-{}: finish {:?}", t_idx, dirpath);
-
                     // switch stat to IDLE
                     {
                         let mut idle_stat = _lock.lock().expect("acquire lock err");
                         idle_stat.insert(t_idx, true);
                     }
                 }
-                // println!("T-{} exit", t_idx);
             })
             .expect("create thread err");
     }
@@ -206,36 +258,20 @@ pub fn parallel_walk(dirlist: Vec<PathBuf>, with_hidden: bool, count_sz: bool) {
         }
 
         if is_idle && path_rx.is_empty() {
-            // println!("--- the end ---");
             break;
         } else {
-            // println!("waitting 100ms.");
             thread::sleep(Duration::from_millis(100));
         }
     }
 
     // get the result
     while let Ok(cnt) = cnt_rx.try_recv() {
-        // println!("merge dir: {:?}", cnt.dirpath);
         for _cnt in &mut counters {
-            // println!("{}", cnt);
             _cnt.merge(&cnt);
         }
     }
 
-    for cnt in counters {
-        println!("{}", cnt);
-    }
-}
-
-#[test]
-fn test_any() {
-    let mut v = vec![100, 32, 57];
-    for i in &mut v {
-        *i += 50;
-    }
-
-    println!("{:?}", v);
+    return counters;
 }
 
 #[test]
