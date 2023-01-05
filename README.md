@@ -1,7 +1,9 @@
 # fcnt
 
 `fcnt` means "file counter".
+
 It is a cmd-line tool for counting the number of files in given directories.
+
 Directory traversal uses multiple threads.
 
 ## Usage
@@ -11,14 +13,15 @@ $ fcnt3 [OPTIONS] [DIRECTORIES]...
 ```
 
 - Arguments:
+
   [DIRECTORIES]...  the directories (default: ./)
 
 - Options:
-  `-a`             count all regular and hidden files
-  `-s`             count the total size of files
-  `-R`             non-recursive mode (files in sub-directories will be ignored)
-  `-h, --help`     Print help information
-  `-V, --version`  Print version information
+  * `-a`             count all regular and hidden files
+  * `-s`             count the total size of files
+  * `-R`             non-recursive mode (files in sub-directories will be ignored)
+  * `-h, --help`     Print help information
+  * `-V, --version`  Print version information
 
 ## Example
 
