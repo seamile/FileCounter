@@ -10,7 +10,6 @@ use std::thread;
 use std::time::Duration;
 
 use flume::unbounded as m_channel;
-use num_cpus::get as cpu_count;
 
 #[cfg(target_os = "linux")]
 use std::os::linux::fs::MetadataExt;
@@ -198,8 +197,12 @@ pub fn walk(dirpath: &PathBuf, with_hidden: bool, count_sz: bool) -> Result<DirD
 
 type Locker = Arc<Mutex<HashMap<usize, bool>>>;
 
-pub fn parallel_walk(dirlist: Vec<PathBuf>, with_hidden: bool, count_sz: bool) -> Vec<Counter> {
-    let n_threads = cpu_count();
+pub fn parallel_walk(
+    dirlist: Vec<PathBuf>,
+    with_hidden: bool,
+    count_sz: bool,
+    n_thread: usize,
+) -> Vec<Counter> {
     let (path_tx, path_rx) = m_channel::<PathBuf>();
     let (cnt_tx, cnt_rx) = s_channel::<Counter>();
     let mut counters = Vec::from_iter(dirlist.iter().map(|p| Counter::new(p)));
@@ -210,8 +213,8 @@ pub fn parallel_walk(dirlist: Vec<PathBuf>, with_hidden: bool, count_sz: bool) -
         path_tx.send(path.clone()).expect("path send err");
     }
 
-    // create walk threads which amount is n_threads
-    for t_idx in 0..n_threads {
+    // create walk threads which amount is n_thread
+    for t_idx in 0..n_thread {
         // clone channels
         let _path_tx = path_tx.clone();
         let _path_rx = path_rx.clone();

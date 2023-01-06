@@ -1,9 +1,11 @@
 mod output;
 mod walker;
 
-use clap::Parser;
 use std::path::PathBuf;
 use std::process::exit;
+
+use clap::Parser;
+use num_cpus::get as cpu_count;
 
 use walker::Counter;
 
@@ -21,14 +23,22 @@ fn main() {
             };
         }
     } else {
-        counters = walker::parallel_walk(directories, args.all_files, args.count_size);
+        let n_thread: usize;
+        if args.n_thread == None {
+            let n_cpu = cpu_count();
+            n_thread = if n_cpu > 4 { n_cpu } else { 4 };
+        } else {
+            n_thread = args.n_thread.unwrap();
+        }
+
+        counters = walker::parallel_walk(directories, args.all_files, args.count_size, n_thread);
     }
     Counter::output(&counters, args.count_size);
 }
 
 #[derive(Parser)]
 #[command(name = "fcnt")]
-#[command(version = "0.1.0")]
+#[command(version = "0.2.0")]
 #[command(about = "Count the total number of files in given directories.")]
 struct CmdLineArgs {
     /// the directories (default: ./)
@@ -45,6 +55,10 @@ struct CmdLineArgs {
     /// non-recursive mode (files in sub-directories will be ignored).
     #[arg(short = 'R')]
     non_recursive: bool,
+
+    /// the number of threads for traversal (invalid in `non_recursive` mode).
+    #[arg(short = 't')]
+    n_thread: Option<usize>,
 }
 
 impl CmdLineArgs {

@@ -20,6 +20,7 @@ $ fcnt3 [OPTIONS] [DIRECTORIES]...
   * `-a`             count all regular and hidden files
   * `-s`             count the total size of files
   * `-R`             non-recursive mode (files in sub-directories will be ignored)
+  * `-t <N_THREAD>`  the number of threads for traversal (invalid in `non_recursive` mode)
   * `-h, --help`     Print help information
   * `-V, --version`  Print version information
 
