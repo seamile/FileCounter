@@ -113,7 +113,7 @@ pub fn color_me(arg: &dyn Display, color: Color, effect: Effect) -> String {
 
 #[allow(unused)]
 pub fn title(arg: &dyn Display) -> String {
-    color_me(arg, Color::Yellow, Effect::Underline)
+    color_me(arg, Color::BrightGreen, Effect::Underline)
 }
 
 #[allow(unused)]

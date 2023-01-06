@@ -6,6 +6,7 @@ readme = "README.md"
 homepage = "https://github.com/seamile/fcnt"
 repository = "https://github.com/seamile/fcnt"
 license = "MIT"
+description = "fcnt is a cmd-line tool for counting the number of files in given directories."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

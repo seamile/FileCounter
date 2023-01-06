@@ -74,12 +74,12 @@ impl CmdLineArgs {
                 if dir.is_dir() {
                     directories.push(dir);
                 } else {
-                    let msg = format!("fcnt: {:?} is not directory.", dir);
-                    println!("{}", output::err(&msg));
+                    let msg = format!("{:?} is not directory.", dir);
+                    println!("{}", output::warn(&msg));
                 }
             }
             if directories.is_empty() {
-                println!("{}", output::err(&"fcnt: non directories."));
+                println!("{}", output::err(&"fcnt: no directory found."));
                 exit(1);
             }
         }
