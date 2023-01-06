@@ -23,14 +23,7 @@ fn main() {
             };
         }
     } else {
-        let n_thread: usize;
-        if args.n_thread == None {
-            let n_cpu = cpu_count();
-            n_thread = if n_cpu > 4 { n_cpu } else { 4 };
-        } else {
-            n_thread = args.n_thread.unwrap();
-        }
-
+        let n_thread = args.get_threads_num();
         counters = walker::parallel_walk(directories, args.all_files, args.count_size, n_thread);
     }
     Counter::output(&counters, args.count_size);
@@ -62,7 +55,17 @@ struct CmdLineArgs {
 }
 
 impl CmdLineArgs {
-    fn get_directories(&self) -> Vec<PathBuf> {
+    pub fn get_threads_num(&self) -> usize {
+        match self.n_thread {
+            Some(num) => num,
+            None => {
+                let n_cpu = cpu_count();
+                return if n_cpu >= 4 { n_cpu } else { 4 };
+            }
+        }
+    }
+
+    pub fn get_directories(&self) -> Vec<PathBuf> {
         let mut directories: Vec<PathBuf> = vec![];
         if self.directories.is_empty() {
             directories.push(PathBuf::from("./"));
