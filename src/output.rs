@@ -12,28 +12,6 @@ pub enum Effect {
 }
 
 #[allow(unused)]
-impl Effect {
-    pub fn bold(arg: &dyn Display, color: Color) -> String {
-        color_me(arg, color, Effect::Bold)
-    }
-    pub fn dark(arg: &dyn Display, color: Color) -> String {
-        color_me(arg, color, Effect::Dark)
-    }
-    pub fn inverse(arg: &dyn Display, color: Color) -> String {
-        color_me(arg, color, Effect::Inverse)
-    }
-    pub fn underline(arg: &dyn Display, color: Color) -> String {
-        color_me(arg, color, Effect::Underline)
-    }
-    pub fn blink(arg: &dyn Display, color: Color) -> String {
-        color_me(arg, color, Effect::Blink)
-    }
-    pub fn hidden(arg: &dyn Display, color: Color) -> String {
-        color_me(arg, color, Effect::Hidden)
-    }
-}
-
-#[allow(unused)]
 pub enum Color {
     Black = 30,
     Red = 31,
@@ -52,58 +30,6 @@ pub enum Color {
     BrightCyan = 96,
     BrightWhite = 97,
     Default = 99,
-}
-
-#[allow(unused)]
-impl Color {
-    pub fn black(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::Black, effect);
-    }
-    pub fn red(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::Red, effect);
-    }
-    pub fn green(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::Green, effect);
-    }
-    pub fn yellow(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::Yellow, effect);
-    }
-    pub fn blue(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::Blue, effect);
-    }
-    pub fn magenta(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::Magenta, effect);
-    }
-    pub fn cyan(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::Cyan, effect);
-    }
-    pub fn white(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::White, effect);
-    }
-    pub fn grey(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::Grey, effect);
-    }
-    pub fn bright_red(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::BrightRed, effect);
-    }
-    pub fn bright_green(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::BrightGreen, effect);
-    }
-    pub fn bright_yellow(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::BrightYellow, effect);
-    }
-    pub fn bright_blue(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::BrightBlue, effect);
-    }
-    pub fn bright_magenta(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::BrightMagenta, effect);
-    }
-    pub fn bright_cyan(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::BrightCyan, effect);
-    }
-    pub fn bright_white(arg: &dyn Display, effect: Effect) -> String {
-        return color_me(arg, Color::BrightWhite, effect);
-    }
 }
 
 #[allow(unused)]
@@ -135,18 +61,25 @@ fn spaces(width: usize) -> String {
     return String::from_utf8(vec![32_u8; width]).unwrap();
 }
 
+pub fn display_width(s: &String) -> usize {
+    return s
+        .chars()
+        .map(|c| if c as u32 > 0x2e80 { 2_usize } else { 1_usize })
+        .sum::<usize>();
+}
+
 #[allow(unused)]
 pub fn align_center(s: &dyn ToString, width: usize) -> String {
     let mut string = s.to_string();
-    let len = string.len();
-    if len < width {
-        let n_fill = width - string.len();
+    let d_width = display_width(&string);
+    if d_width < width {
+        let n_fill = width - d_width;
         if n_fill % 2 == 0 {
             let fill = spaces(n_fill / 2);
-            string.insert_str(len, &fill);
+            string.insert_str(string.len(), &fill);
             string.insert_str(0, &fill);
         } else {
-            string.insert_str(len, &spaces(n_fill / 2 + 1));
+            string.insert_str(string.len(), &spaces(n_fill / 2 + 1));
             string.insert_str(0, &spaces(n_fill / 2));
         }
     }
@@ -156,10 +89,10 @@ pub fn align_center(s: &dyn ToString, width: usize) -> String {
 #[allow(unused)]
 pub fn align_left(s: &dyn ToString, width: usize) -> String {
     let mut string = s.to_string();
-    let len = string.len();
-    if len < width {
-        let n_fill = width - string.len();
-        string.insert_str(len, &spaces(n_fill));
+    let d_width = display_width(&string);
+    if d_width < width {
+        let n_fill = width - d_width;
+        string.insert_str(string.len(), &spaces(n_fill));
     }
     return string;
 }
@@ -167,12 +100,25 @@ pub fn align_left(s: &dyn ToString, width: usize) -> String {
 #[allow(unused)]
 pub fn align_right(s: &dyn ToString, width: usize) -> String {
     let mut string = s.to_string();
-    let len = string.len();
-    if len < width {
-        let n_fill = width - string.len();
+    let d_width = display_width(&string);
+    if d_width < width {
+        let n_fill = width - d_width;
         string.insert_str(0, &spaces(n_fill));
     }
     return string;
+}
+
+#[test]
+fn test_color() {
+    let s = "Hello World";
+    println!(
+        "yellow + underline: {}\n",
+        color_me(&s, Color::Yellow, Effect::Underline)
+    );
+    println!("title: {}", title(&s));
+    println!("info : {}", info(&s));
+    println!("warn : {}", warn(&s));
+    println!("err  : {}", err(&s));
 }
 
 #[test]
@@ -183,25 +129,42 @@ fn test_align() {
     assert_eq!(align_left(&s, 15), String::from("HelloWorld     "));
     assert_eq!(align_right(&s, 15), String::from("     HelloWorld"));
 
-    let t = vec![
-        align_left(&"Name", 8),
-        align_right(&"Files", 5),
-        align_right(&"Dirs", 5),
-        align_right(&"Size", 9),
-    ]
-    .join(" ");
-    println!("{}", title(&t));
+    let t = title(
+        &vec![
+            align_left(&"Name", 8),
+            align_right(&"Files", 5),
+            align_right(&"Dirs", 5),
+            align_right(&"Size", 9),
+        ]
+        .join(" "),
+    );
+
+    println!("{}", t);
+    assert_eq!(
+        t,
+        "\x1b[4;92mName     Files  Dirs      Size\x1b[0m".to_string()
+    );
 }
 
 #[test]
-fn test_color() {
-    let s = "Hello World";
-    println!(
-        "yellow + underline: {}\n",
-        Color::yellow(&s, Effect::Underline)
-    );
-    println!("title: {}", title(&s));
-    println!("info: {}", info(&s));
-    println!("warn: {}", warn(&s));
-    println!("err: {}", err(&s));
+fn test_non_ascii() {
+    let s1 = "Hello World!";
+    let s2 = "你好 Rust";
+    let s3 = "Séamile: 🌊😀";
+    let s4 = "EVA，人の作り出した物";
+
+    let aligned_s1 = align_right(&s1, 25);
+    let aligned_s2 = align_center(&s2, 25);
+    let aligned_s3 = align_left(&s3, 25);
+    let aligned_s4 = align_left(&s4, 25);
+
+    println!("s1 => |{}|", aligned_s1);
+    println!("s2 => |{}|", aligned_s2);
+    println!("s3 => |{}|", aligned_s3);
+    println!("s3 => |{}|", aligned_s4);
+
+    assert_eq!(aligned_s1.len(), 25);
+    assert_eq!(aligned_s2.len(), 27);
+    assert_eq!(aligned_s3.len(), 30);
+    assert_eq!(aligned_s4.len(), 34);
 }

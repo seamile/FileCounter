@@ -35,6 +35,5 @@ Name               Files  Dirs    Size
 
 ## TODO
 
-- [ ] fix the display bug of Chinese, Japanese, Korean and emoji.
 - [ ] add test cases.
 - [ ] add documentation in the source code.

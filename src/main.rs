@@ -31,7 +31,7 @@ fn main() {
 
 #[derive(Parser)]
 #[command(name = "fcnt")]
-#[command(version = "0.2.0")]
+#[command(version = "0.2.1")]
 #[command(about = "Count the total number of files in given directories.")]
 struct CmdLineArgs {
     /// the directories (default: ./)
@@ -74,7 +74,7 @@ impl CmdLineArgs {
                 if dir.is_dir() {
                     directories.push(dir);
                 } else {
-                    let msg = format!("{:?} is not directory.", dir);
+                    let msg = format!("{:?} is not a directory.", dir);
                     println!("{}", output::warn(&msg));
                 }
             }

@@ -88,9 +88,9 @@ impl Counter {
         }
     }
 
-    pub fn len(&self) -> (usize, usize, usize, usize) {
+    pub fn lengths(&self) -> (usize, usize, usize, usize) {
         return (
-            self.name().len(),
+            op::display_width(&self.name().to_string()),
             self.n_files.to_string().len(),
             self.n_dirs.to_string().len(),
             self.readable_size().len(),
@@ -124,7 +124,7 @@ impl Counter {
         let mut lines: Vec<String> = vec![];
         let lens = counters
             .iter()
-            .map(|c| c.len())
+            .map(|c| c.lengths())
             .map(|w| (w.0.max(4), w.1.max(5), w.2.max(4), w.3.max(4)))
             .reduce(|m, n| (n.0.max(m.0), n.1.max(m.1), n.2.max(m.2), n.3.max(m.3)))
             .unwrap();
@@ -210,7 +210,7 @@ pub fn parallel_walk(
 
     // send dirlist to path channel
     for path in dirlist {
-        path_tx.send(path.clone()).expect("path send err");
+        path_tx.send(path.clone()).expect("send path err");
     }
 
     // create walk threads which amount is n_thread
@@ -234,13 +234,13 @@ pub fn parallel_walk(
 
                     // traverse all files in the directory
                     let (sub_dirs, sub_cnt) = walk(&dirpath, with_hidden, count_sz)
-                        .expect(format!("{} Error", &dirpath.to_string_lossy()).as_str());
+                        .expect(&format!("walk err: {}", &dirpath.to_str().unwrap()));
 
                     // send the sub_dirs and the sub_counter back
                     for path in sub_dirs {
-                        _path_tx.send(path.clone()).expect("path send err");
+                        _path_tx.send(path.clone()).expect("send path err");
                     }
-                    _cnt_tx.send(sub_cnt).expect("counter send err");
+                    _cnt_tx.send(sub_cnt).expect("send counter err");
 
                     // switch stat to IDLE
                     {
