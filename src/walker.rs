@@ -26,10 +26,10 @@ pub type DirDetail = (DirList, Counter);
 
 #[derive(Debug)]
 pub struct Counter {
-    dirpath: PathBuf,
-    n_files: u64,
-    n_dirs: u64,
-    sz_map: SizeMap,
+    pub dirpath: PathBuf,
+    pub n_files: u64,
+    pub n_dirs: u64,
+    pub sz_map: SizeMap,
 }
 
 #[allow(unused)]
@@ -55,13 +55,13 @@ impl Counter {
         return (blksz * (sz / blksz).ceil()) as u64;
     }
 
-    pub fn total_size(&self) -> u64 {
+    pub fn size(&self) -> u64 {
         self.sz_map.values().sum()
     }
 
     // Make "size" more readable
     pub fn readable_size(&self) -> String {
-        let mut sz = self.total_size() as f64;
+        let mut sz = self.size() as f64;
         let mut str_sz = String::new();
 
         for unit in Self::SZ_UNIT {

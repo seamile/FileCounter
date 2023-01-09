@@ -26,6 +26,13 @@ fn main() {
         let n_thread = args.get_threads_num();
         counters = walker::parallel_walk(directories, args.all_files, args.count_size, n_thread);
     }
+
+    if args.count_size {
+        counters.sort_by(|c1, c2| c2.size().cmp(&c1.size()));
+    } else {
+        counters.sort_by(|c1, c2| c2.n_files.cmp(&c1.n_files));
+    }
+
     Counter::output(&counters, args.count_size);
 }
 
