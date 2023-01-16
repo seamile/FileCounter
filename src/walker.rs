@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt;
 use std::fs;
 use std::io::Result;
 use std::path::PathBuf;
@@ -22,30 +21,35 @@ use crate::output as op;
 
 type DirList = Vec<PathBuf>;
 type SizeMap = HashMap<u64, u64>;
-pub type DirDetail = (DirList, Counter);
+type DirDetail = (DirList, Counter);
+type Lengths = (usize, usize, usize, usize);
 
 #[derive(Debug)]
 pub struct Counter {
     pub dirpath: PathBuf,
     pub n_files: u64,
     pub n_dirs: u64,
-    pub sz_map: SizeMap,
+    pub sz_map: Option<SizeMap>,
 }
 
-#[allow(unused)]
 impl Counter {
     const SZ_UNIT: [&str; 7] = ["B", "K", "M", "G", "T", "P", "E"];
 
-    pub fn new(dirpath: &PathBuf) -> Self {
+    pub fn new(dirpath: &PathBuf, with_size: bool) -> Self {
         return Self {
             dirpath: dirpath.clone(),
             n_files: 0,
             n_dirs: 0,
-            sz_map: SizeMap::new(),
+
+            sz_map: if with_size {
+                Some(SizeMap::new())
+            } else {
+                None
+            },
         };
     }
 
-    pub fn name(&self) -> &str {
+    fn name(&self) -> &str {
         return self.dirpath.to_str().expect("dir path err");
     }
 
@@ -56,11 +60,14 @@ impl Counter {
     }
 
     pub fn size(&self) -> u64 {
-        self.sz_map.values().sum()
+        match self.sz_map.as_ref() {
+            Some(mp) => mp.values().sum(),
+            None => 0,
+        }
     }
 
     // Make "size" more readable
-    pub fn readable_size(&self) -> String {
+    fn readable_size(&self) -> String {
         let mut sz = self.size() as f64;
         let mut str_sz = String::new();
 
@@ -80,15 +87,17 @@ impl Counter {
     }
 
     // merge from anther Counter
-    pub fn merge(&mut self, other: &Self) {
+    fn merge(&mut self, other: &Self) {
         if other.dirpath.starts_with(&self.dirpath) {
             self.n_files += other.n_files;
             self.n_dirs += other.n_dirs;
-            self.sz_map.extend(other.sz_map.iter());
+            if let Some(sz_mp) = self.sz_map.as_mut() {
+                sz_mp.extend(other.sz_map.as_ref().unwrap().iter());
+            }
         }
     }
 
-    pub fn lengths(&self) -> (usize, usize, usize, usize) {
+    fn lengths(&self) -> Lengths {
         return (
             op::display_width(&self.name().to_string()),
             self.n_files.to_string().len(),
@@ -97,26 +106,27 @@ impl Counter {
         );
     }
 
-    fn join_fields(
-        fields: Vec<&dyn ToString>,
-        lens: (usize, usize, usize, usize),
-        with_size: bool,
-    ) -> String {
+    fn make_title(with_size: bool, lens: Lengths) -> String {
+        let f0 = op::align_left(&"Name", lens.0);
+        let f1 = op::align_right(&"Files", lens.1);
+        let f2 = op::align_right(&"Dirs", lens.2);
         if with_size {
-            return vec![
-                op::align_left(fields[0], lens.0),
-                op::align_right(fields[1], lens.1),
-                op::align_right(fields[2], lens.2),
-                op::align_right(fields[3], lens.3),
-            ]
-            .join("  ");
+            let f3 = op::align_right(&"Size", lens.3);
+            return op::title(&vec![f0, f1, f2, f3].join("  "));
         } else {
-            return vec![
-                op::align_left(fields[0], lens.0),
-                op::align_right(fields[1], lens.1),
-                op::align_right(fields[2], lens.2),
-            ]
-            .join("  ");
+            return op::title(&vec![f0, f1, f2].join("  "));
+        }
+    }
+
+    fn join_fields(&self, lens: Lengths) -> String {
+        let f0 = op::align_left(&self.name(), lens.0);
+        let f1 = op::align_right(&self.n_files, lens.1);
+        let f2 = op::align_right(&self.n_dirs, lens.2);
+        if self.sz_map == None {
+            return vec![f0, f1, f2].join("  ");
+        } else {
+            let f3 = op::align_right(&self.readable_size(), lens.3);
+            return vec![f0, f1, f2, f3].join("  ");
         }
     }
 
@@ -129,43 +139,20 @@ impl Counter {
             .reduce(|m, n| (n.0.max(m.0), n.1.max(m.1), n.2.max(m.2), n.3.max(m.3)))
             .unwrap();
 
-        // make title
-        let title = Self::join_fields(vec![&"Name", &"Files", &"Dirs", &"Size"], lens, with_size);
-        lines.push(op::title(&title));
-
-        // make content line
+        // make title and content lines
+        lines.push(op::title(&Self::make_title(with_size, lens)));
         for cnt in counters {
-            let line = Self::join_fields(
-                vec![&cnt.name(), &cnt.n_files, &cnt.n_dirs, &cnt.readable_size()],
-                lens,
-                with_size,
-            );
-            lines.push(line);
+            lines.push(cnt.join_fields(lens));
         }
 
         // output
-        for line in lines {
-            println!("{}", line);
-        }
+        println!("{}", lines.join("\n"));
     }
 }
 
-impl fmt::Display for Counter {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        return write!(
-            f,
-            "{} : {} files, {} dirs, {}",
-            self.name(),
-            self.n_files,
-            self.n_dirs,
-            self.readable_size()
-        );
-    }
-}
-
-pub fn walk(dirpath: &PathBuf, with_hidden: bool, count_sz: bool) -> Result<DirDetail> {
+pub fn walk(dirpath: &PathBuf, with_hidden: bool, with_size: bool) -> Result<DirDetail> {
     let mut dirs = DirList::new();
-    let mut cnt = Counter::new(dirpath);
+    let mut cnt = Counter::new(dirpath, with_size);
 
     for entry in fs::read_dir(dirpath)? {
         let entry = entry?;
@@ -184,10 +171,10 @@ pub fn walk(dirpath: &PathBuf, with_hidden: bool, count_sz: bool) -> Result<DirD
             dirs.push(path);
         } else {
             cnt.n_files += 1;
-            if count_sz {
-                // count file size and insert into SizeMap
+            // count file size and insert into SizeMap
+            if let Some(mp) = cnt.sz_map.as_mut() {
                 let meta = entry.metadata()?;
-                cnt.sz_map.insert(meta.st_ino(), Counter::file_size(&meta));
+                mp.insert(meta.st_ino(), Counter::file_size(&meta));
             }
         }
     }
@@ -200,12 +187,12 @@ type Locker = Arc<Mutex<HashMap<usize, bool>>>;
 pub fn parallel_walk(
     dirlist: Vec<PathBuf>,
     with_hidden: bool,
-    count_sz: bool,
+    with_size: bool,
     n_thread: usize,
 ) -> Vec<Counter> {
     let (path_tx, path_rx) = m_channel::<PathBuf>();
     let (cnt_tx, cnt_rx) = s_channel::<Counter>();
-    let mut counters = Vec::from_iter(dirlist.iter().map(|p| Counter::new(p)));
+    let mut counters = Vec::from_iter(dirlist.iter().map(|p| Counter::new(p, with_size)));
     let stat_locker: Locker = Arc::new(Mutex::new(HashMap::new()));
 
     // send dirlist to path channel
@@ -233,7 +220,7 @@ pub fn parallel_walk(
                     }
 
                     // traverse all files in the directory
-                    let (sub_dirs, sub_cnt) = walk(&dirpath, with_hidden, count_sz)
+                    let (sub_dirs, sub_cnt) = walk(&dirpath, with_hidden, with_size)
                         .expect(&format!("walk err: {}", &dirpath.to_str().unwrap()));
 
                     // send the sub_dirs and the sub_counter back
@@ -279,26 +266,26 @@ pub fn parallel_walk(
 
 #[test]
 fn test_readable_size() {
-    let mut c = Counter::new(&PathBuf::from("."));
+    let mut c = Counter::new(&PathBuf::from("."), true);
 
-    c.sz_map.insert(1, 1023);
+    c.sz_map.as_mut().unwrap().insert(1, 1023);
     assert_eq!(c.readable_size(), "1023B");
 
-    c.sz_map.insert(1, 1434);
+    c.sz_map.as_mut().unwrap().insert(1, 1434);
     assert_eq!(c.readable_size(), "1.4K");
 
-    c.sz_map.insert(1, 15926);
+    c.sz_map.as_mut().unwrap().insert(1, 15926);
     assert_eq!(c.readable_size(), "15.6K");
 
-    c.sz_map.insert(1, 53589793);
+    c.sz_map.as_mut().unwrap().insert(1, 53589793);
     assert_eq!(c.readable_size(), "51.1M");
 
-    c.sz_map.insert(1, 238462643383);
+    c.sz_map.as_mut().unwrap().insert(1, 238462643383);
     assert_eq!(c.readable_size(), "222.1G");
 
-    c.sz_map.insert(1, 279502884197169);
+    c.sz_map.as_mut().unwrap().insert(1, 279502884197169);
     assert_eq!(c.readable_size(), "254.2T");
 
-    c.sz_map.insert(1, 0xffffffffffffffff);
+    c.sz_map.as_mut().unwrap().insert(1, 0xffffffffffffffff);
     assert_eq!(c.readable_size(), "16E");
 }

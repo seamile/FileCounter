@@ -18,22 +18,22 @@ fn main() {
     let mut counters = Vec::<Counter>::new();
     if args.non_recursive {
         for dirpath in directories {
-            if let Ok((_, counter)) = walker::walk(&dirpath, args.all_files, args.count_size) {
+            if let Ok((_, counter)) = walker::walk(&dirpath, args.all_files, args.with_size) {
                 counters.push(counter);
             };
         }
     } else {
         let n_thread = args.get_threads_num();
-        counters = walker::parallel_walk(directories, args.all_files, args.count_size, n_thread);
+        counters = walker::parallel_walk(directories, args.all_files, args.with_size, n_thread);
     }
 
-    if args.count_size {
+    if args.with_size {
         counters.sort_by(|c1, c2| c2.size().cmp(&c1.size()));
     } else {
         counters.sort_by(|c1, c2| c2.n_files.cmp(&c1.n_files));
     }
 
-    Counter::output(&counters, args.count_size);
+    Counter::output(&counters, args.with_size);
 }
 
 #[derive(Parser)]
@@ -50,7 +50,7 @@ struct CmdLineArgs {
 
     /// count the total size of files.
     #[arg(short = 's')]
-    count_size: bool,
+    with_size: bool,
 
     /// non-recursive mode (files in sub-directories will be ignored).
     #[arg(short = 'R')]
