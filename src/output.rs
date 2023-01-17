@@ -39,26 +39,36 @@ pub fn color_me(arg: &dyn Display, color: Color, effect: Effect) -> String {
 
 #[allow(unused)]
 pub fn title(arg: &dyn Display) -> String {
-    color_me(arg, Color::BrightGreen, Effect::Underline)
+    return color_me(arg, Color::BrightGreen, Effect::Underline);
 }
 
 #[allow(unused)]
 pub fn info(arg: &dyn Display) -> String {
-    color_me(arg, Color::BrightBlue, Effect::Default)
+    return color_me(arg, Color::BrightBlue, Effect::Default);
 }
 
 #[allow(unused)]
 pub fn warn(arg: &dyn Display) -> String {
-    color_me(arg, Color::Yellow, Effect::Default)
+    return color_me(arg, Color::Yellow, Effect::Default);
 }
 
 #[allow(unused)]
 pub fn err(arg: &dyn Display) -> String {
-    color_me(arg, Color::Red, Effect::Default)
+    return color_me(arg, Color::Red, Effect::Default);
 }
 
-fn spaces(width: usize) -> String {
-    return String::from_utf8(vec![32_u8; width]).unwrap();
+#[allow(unused)]
+pub fn strong(arg: &dyn Display) -> String {
+    return color_me(arg, Color::Default, Effect::Bold);
+}
+
+pub fn fill_char(chr: char, width: usize) -> String {
+    let s = vec![chr as u16; width];
+    return String::from_utf16(&s).unwrap();
+}
+
+pub fn spaces(width: usize) -> String {
+    return fill_char(' ', width);
 }
 
 pub fn display_width(s: &String) -> usize {
@@ -69,7 +79,7 @@ pub fn display_width(s: &String) -> usize {
 }
 
 #[allow(unused)]
-pub fn align_center(s: &dyn ToString, width: usize) -> String {
+pub fn center_justify(s: &dyn ToString, width: usize) -> String {
     let mut string = s.to_string();
     let d_width = display_width(&string);
     if d_width < width {
@@ -87,7 +97,7 @@ pub fn align_center(s: &dyn ToString, width: usize) -> String {
 }
 
 #[allow(unused)]
-pub fn align_left(s: &dyn ToString, width: usize) -> String {
+pub fn left_justify(s: &dyn ToString, width: usize) -> String {
     let mut string = s.to_string();
     let d_width = display_width(&string);
     if d_width < width {
@@ -98,7 +108,7 @@ pub fn align_left(s: &dyn ToString, width: usize) -> String {
 }
 
 #[allow(unused)]
-pub fn align_right(s: &dyn ToString, width: usize) -> String {
+pub fn right_justify(s: &dyn ToString, width: usize) -> String {
     let mut string = s.to_string();
     let d_width = display_width(&string);
     if d_width < width {
@@ -124,17 +134,17 @@ fn test_color() {
 #[test]
 fn test_align() {
     let s = "HelloWorld";
-    assert_eq!(align_center(&s, 14), String::from("  HelloWorld  "));
-    assert_eq!(align_center(&s, 15), String::from("  HelloWorld   "));
-    assert_eq!(align_left(&s, 15), String::from("HelloWorld     "));
-    assert_eq!(align_right(&s, 15), String::from("     HelloWorld"));
+    assert_eq!(center_justify(&s, 14), String::from("  HelloWorld  "));
+    assert_eq!(center_justify(&s, 15), String::from("  HelloWorld   "));
+    assert_eq!(left_justify(&s, 15), String::from("HelloWorld     "));
+    assert_eq!(right_justify(&s, 15), String::from("     HelloWorld"));
 
     let t = title(
         &vec![
-            align_left(&"Name", 8),
-            align_right(&"Files", 5),
-            align_right(&"Dirs", 5),
-            align_right(&"Size", 9),
+            left_justify(&"Name", 8),
+            right_justify(&"Files", 5),
+            right_justify(&"Dirs", 5),
+            right_justify(&"Size", 9),
         ]
         .join(" "),
     );
@@ -153,10 +163,10 @@ fn test_non_ascii() {
     let s3 = "Séamile: 🌊😀";
     let s4 = "EVA，人の作り出した物";
 
-    let aligned_s1 = align_right(&s1, 25);
-    let aligned_s2 = align_center(&s2, 25);
-    let aligned_s3 = align_left(&s3, 25);
-    let aligned_s4 = align_left(&s4, 25);
+    let aligned_s1 = right_justify(&s1, 25);
+    let aligned_s2 = center_justify(&s2, 25);
+    let aligned_s3 = left_justify(&s3, 25);
+    let aligned_s4 = left_justify(&s4, 25);
 
     println!("s1 => |{}|", aligned_s1);
     println!("s2 => |{}|", aligned_s2);

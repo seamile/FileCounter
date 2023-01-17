@@ -35,6 +35,7 @@ pub struct Counter {
 impl Counter {
     const SZ_UNIT: [&str; 7] = ["B", "K", "M", "G", "T", "P", "E"];
 
+    /// Create a new Counter
     pub fn new(dirpath: &PathBuf, with_size: bool) -> Self {
         return Self {
             dirpath: dirpath.clone(),
@@ -49,16 +50,19 @@ impl Counter {
         };
     }
 
-    fn name(&self) -> &str {
+    // the dirpath with `&str` type
+    fn path(&self) -> &str {
         return self.dirpath.to_str().expect("dir path err");
     }
 
+    // get the file size from Metadata
     fn file_size(metadata: &fs::Metadata) -> u64 {
         let sz = metadata.st_size() as f64;
         let blksz = metadata.st_blksize() as f64;
         return (blksz * (sz / blksz).ceil()) as u64;
     }
 
+    // calculate the total size of files in dirpath
     pub fn size(&self) -> u64 {
         match self.sz_map.as_ref() {
             Some(mp) => mp.values().sum(),
@@ -66,9 +70,8 @@ impl Counter {
         }
     }
 
-    // Make "size" more readable
-    fn readable_size(&self) -> String {
-        let mut sz = self.size() as f64;
+    fn add_unit_to_size(size: u64) -> String {
+        let mut sz = size as f64;
         let mut str_sz = String::new();
 
         for unit in Self::SZ_UNIT {
@@ -86,6 +89,11 @@ impl Counter {
         return str_sz;
     }
 
+    // make "size" more readable
+    fn readable_size(&self) -> String {
+        return Self::add_unit_to_size(self.size());
+    }
+
     // merge from anther Counter
     fn merge(&mut self, other: &Self) {
         if other.dirpath.starts_with(&self.dirpath) {
@@ -97,52 +105,105 @@ impl Counter {
         }
     }
 
+    // get the length of each field for display
     fn lengths(&self) -> Lengths {
         return (
-            op::display_width(&self.name().to_string()),
+            op::display_width(&self.path().to_string()),
             self.n_files.to_string().len(),
             self.n_dirs.to_string().len(),
             self.readable_size().len(),
         );
     }
 
-    fn make_title(with_size: bool, lens: Lengths) -> String {
-        let f0 = op::align_left(&"Name", lens.0);
-        let f1 = op::align_right(&"Files", lens.1);
-        let f2 = op::align_right(&"Dirs", lens.2);
+    fn join_fields(fields: Vec<&dyn ToString>, with_size: bool, lens: Lengths) -> String {
+        let f0 = op::left_justify(fields[0], lens.0);
+        let f1 = op::right_justify(fields[1], lens.1);
+        let f2 = op::right_justify(fields[2], lens.2);
         if with_size {
-            let f3 = op::align_right(&"Size", lens.3);
-            return op::title(&vec![f0, f1, f2, f3].join("  "));
+            let f3 = op::right_justify(fields[3], lens.3);
+            return vec![f0, f1, f2, f3].join("  ");
         } else {
-            return op::title(&vec![f0, f1, f2].join("  "));
+            return vec![f0, f1, f2].join("  ");
         }
     }
 
-    fn join_fields(&self, lens: Lengths) -> String {
-        let f0 = op::align_left(&self.name(), lens.0);
-        let f1 = op::align_right(&self.n_files, lens.1);
-        let f2 = op::align_right(&self.n_dirs, lens.2);
-        if self.sz_map == None {
-            return vec![f0, f1, f2].join("  ");
-        } else {
-            let f3 = op::align_right(&self.readable_size(), lens.3);
-            return vec![f0, f1, f2, f3].join("  ");
+    fn to_string(&self, lens: Lengths) -> String {
+        let path = self.path();
+        let size = self.readable_size();
+        let fields: Vec<&dyn ToString> = vec![&path, &self.n_files, &self.n_dirs, &size];
+        let with_size = self.sz_map != None;
+        return Self::join_fields(fields, with_size, lens);
+    }
+
+    fn make_head_line(with_size: bool, lens: Lengths) -> String {
+        let fields: Vec<&dyn ToString> = vec![&"Path", &"Files", &"Dirs", &"Size"];
+        return op::title(&Self::join_fields(fields, with_size, lens));
+    }
+
+    fn make_total_line(
+        total: (String, String, String, String),
+        with_size: bool,
+        lens: Lengths,
+    ) -> String {
+        let fields: Vec<&dyn ToString> = vec![&total.0, &total.1, &total.2, &total.3];
+        let total_line = Self::join_fields(fields, with_size, lens);
+        let hor_line = op::fill_char('─', total_line.len());
+
+        return format!("{}\n{}", hor_line, op::strong(&total_line));
+    }
+
+    fn summarize(counters: &Vec<Self>) -> (String, String, String, String) {
+        let mut sum = (0_u64, 0_u64, 0_u64);
+        for c in counters {
+            sum.0 += c.n_files;
+            sum.1 += c.n_dirs;
+            sum.2 += c.size();
         }
+
+        return (
+            String::from("Total"),
+            sum.0.to_string(),
+            sum.1.to_string(),
+            Self::add_unit_to_size(sum.2),
+        );
+    }
+
+    fn max_lengths(lens: Vec<Lengths>) -> Lengths {
+        let mut max_lens: Lengths = (0, 0, 0, 0);
+        for (l0, l1, l2, l3) in lens {
+            max_lens.0 = max_lens.0.max(l0);
+            max_lens.1 = max_lens.1.max(l1);
+            max_lens.2 = max_lens.2.max(l2);
+            max_lens.3 = max_lens.3.max(l3);
+        }
+        return max_lens;
     }
 
     pub fn output(counters: &Vec<Self>, with_size: bool) {
-        let mut lines: Vec<String> = vec![];
-        let lens = counters
-            .iter()
-            .map(|c| c.lengths())
-            .map(|w| (w.0.max(4), w.1.max(5), w.2.max(4), w.3.max(4)))
-            .reduce(|m, n| (n.0.max(m.0), n.1.max(m.1), n.2.max(m.2), n.3.max(m.3)))
-            .unwrap();
+        let total = if counters.len() > 1 {
+            Self::summarize(counters)
+        } else {
+            (String::new(), String::new(), String::new(), String::new())
+        };
 
-        // make title and content lines
-        lines.push(op::title(&Self::make_title(with_size, lens)));
+        // calculate the max value from `title`, `total` and `contents` lengths
+        let title_lens = (4_usize, 5_usize, 4_usize, 4_usize);
+        let total_lens = (total.0.len(), total.1.len(), total.2.len(), total.3.len());
+        let mut lens = Vec::from_iter(counters.iter().map(|c| c.lengths()));
+        lens.append(&mut vec![total_lens, title_lens]);
+        let max_lens = Self::max_lengths(lens);
+
+        // create the output lines from title, content and total
+        let mut lines: Vec<String> = vec![];
+        lines.push(Self::make_head_line(with_size, max_lens));
         for cnt in counters {
-            lines.push(cnt.join_fields(lens));
+            lines.push(cnt.to_string(max_lens));
+        }
+
+        // output the total only when there is more than one counters
+        if counters.len() > 1 {
+            let total_line = Self::make_total_line(total, with_size, max_lens);
+            lines.push(total_line);
         }
 
         // output
