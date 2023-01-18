@@ -7,7 +7,7 @@ It can quickly count the number and size of huge amount of files in multiple dir
 ## Usage
 
 ```shell
-$ fcnt3 [OPTIONS] [DIRECTORIES]...
+$ fcnt [OPTIONS] [DIRECTORIES]...
 ```
 
 - Arguments:
@@ -24,16 +24,26 @@ $ fcnt3 [OPTIONS] [DIRECTORIES]...
 
 ## Example
 
-```shell
-$ fcnt -as ./Pictures ./Music ./Downloads/Gzh/Gifts
+By default, the results will be sorted by file count in descending order.
 
-Name               Files  Dirs    Size
-./Pictures          7783   276   17.6G
-./Music             3671  1199     21G
-./Downloads/Gifts    295     6  689.8M
+```shell
+fcnt ./Pictures ./Music ./src/package
+Path           Files  Dirs
+./src/package   8070  3120
+./Pictures      7799   274
+./Music         3455  1196
+──────────────────────────
+Total          19324  4590
 ```
 
-## TODO
+If the `-s` option is specified, the sort column will be change to `Size`.
 
-- [ ] add test cases.
-- [ ] add documentation in the source code.
+```shell
+$ fcnt -s ./Pictures ./Music ./src/package
+Path           Files  Dirs   Size
+./Music         3455  1196    21G
+./Pictures      7799   274  17.5G
+./src/package   8070  3120     4G
+─────────────────────────────────
+Total          19324  4590  42.6G
+```

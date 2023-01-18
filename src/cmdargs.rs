@@ -8,7 +8,7 @@ use crate::output as op;
 
 #[derive(Parser)]
 #[command(name = "fcnt")]
-#[command(version = "0.2.1")]
+#[command(version = "0.2.2")]
 #[command(about = "Count the total number of files in given directories.")]
 pub struct CmdArgParser {
     /// the directories (default: ./)
