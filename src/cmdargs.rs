@@ -18,17 +18,21 @@ pub struct CmdArgParser {
     #[arg(short = 'a')]
     pub all_files: bool,
 
+    /// use regex to match file.
+    #[arg(short = 'r')]
+    pub re: Option<String>,
+
     /// count the total size of files.
     #[arg(short = 's')]
     pub with_size: bool,
 
-    /// non-recursive mode (files in sub-directories will be ignored).
-    #[arg(short = 'R')]
-    pub non_recursive: bool,
-
     /// the number of threads for traversal (invalid in `non_recursive` mode).
     #[arg(short = 't')]
     pub n_thread: Option<usize>,
+
+    /// non-recursive mode (files in sub-directories will be ignored).
+    #[arg(short = 'R')]
+    pub non_recursive: bool,
 }
 
 impl CmdArgParser {

@@ -1,6 +1,12 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io::Result;
+#[cfg(target_os = "linux")]
+use std::os::linux::fs::MetadataExt;
+#[cfg(target_os = "macos")]
+use std::os::macos::fs::MetadataExt;
+#[cfg(target_os = "unix")]
+use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 use std::sync::mpsc::channel as s_channel;
 use std::sync::Arc;
@@ -9,13 +15,6 @@ use std::thread;
 use std::time::Duration;
 
 use flume::unbounded as m_channel;
-
-#[cfg(target_os = "linux")]
-use std::os::linux::fs::MetadataExt;
-#[cfg(target_os = "macos")]
-use std::os::macos::fs::MetadataExt;
-#[cfg(target_os = "unix")]
-use std::os::unix::fs::MetadataExt;
 
 use crate::output as op;
 
@@ -243,8 +242,6 @@ pub fn walk(dirpath: &PathBuf, with_hidden: bool, with_size: bool) -> Result<Dir
     return Ok((dirs, cnt));
 }
 
-type Locker = Arc<Mutex<HashMap<usize, bool>>>;
-
 pub fn parallel_walk(
     dirlist: Vec<PathBuf>,
     with_hidden: bool,
@@ -254,7 +251,7 @@ pub fn parallel_walk(
     let (path_tx, path_rx) = m_channel::<PathBuf>();
     let (cnt_tx, cnt_rx) = s_channel::<Counter>();
     let mut counters = Vec::from_iter(dirlist.iter().map(|p| Counter::new(p, with_size)));
-    let stat_locker: Locker = Arc::new(Mutex::new(HashMap::new()));
+    let stat_locker = Arc::new(Mutex::new(HashMap::new()));
 
     // send dirlist to path channel
     for path in dirlist {
