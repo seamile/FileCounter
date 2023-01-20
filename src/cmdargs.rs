@@ -19,7 +19,7 @@ pub struct CmdArgParser {
     pub all_files: bool,
 
     /// use regex to match file.
-    #[arg(short = 'r')]
+    #[arg(short = 'r', value_name = "PATTERN")]
     pub re: Option<String>,
 
     /// count the total size of files.
@@ -27,8 +27,12 @@ pub struct CmdArgParser {
     pub with_size: bool,
 
     /// the number of threads for traversal (invalid in `non_recursive` mode).
-    #[arg(short = 't')]
+    #[arg(short = 't', value_name = "THREAD_NUM")]
     pub n_thread: Option<usize>,
+
+    /// verbose mode, open this option will display the found entries.
+    #[arg(short = 'v')]
+    pub verbose: bool,
 
     /// non-recursive mode (files in sub-directories will be ignored).
     #[arg(short = 'R')]
