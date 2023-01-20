@@ -210,7 +210,12 @@ impl Counter {
     }
 }
 
-pub fn walk(dirpath: &PathBuf, with_hidden: bool, with_size: bool) -> Result<DirDetail> {
+pub fn walk(
+    dirpath: &PathBuf,
+    with_hidden: bool,
+    with_size: bool,
+    verbose: bool,
+) -> Result<DirDetail> {
     let mut dirs = DirList::new();
     let mut cnt = Counter::new(dirpath, with_size);
 
@@ -218,6 +223,7 @@ pub fn walk(dirpath: &PathBuf, with_hidden: bool, with_size: bool) -> Result<Dir
         let entry = entry?;
         let path = entry.path();
         let fname = entry.file_name();
+        let ftype: String;
 
         if !with_hidden && fname.to_string_lossy().starts_with('.') {
             // ignore the hidden files and dirs
@@ -226,16 +232,22 @@ pub fn walk(dirpath: &PathBuf, with_hidden: bool, with_size: bool) -> Result<Dir
             // The size of symbolic link is 0B.
             // So just increase the num of files here.
             cnt.n_files += 1;
+            ftype = op::note(&"Symlink");
         } else if path.is_dir() {
             cnt.n_dirs += 1;
-            dirs.push(path);
+            ftype = op::warn(&"Dir");
+            dirs.push(path.clone());
         } else {
             cnt.n_files += 1;
+            ftype = op::info(&"File");
             // count file size and insert into SizeMap
             if let Some(mp) = cnt.sz_map.as_mut() {
                 let meta = entry.metadata()?;
                 mp.insert(meta.st_ino(), Counter::file_size(&meta));
             }
+        }
+        if verbose {
+            println!("{:>18} > {}", ftype, path.to_string_lossy());
         }
     }
 
@@ -246,6 +258,7 @@ pub fn parallel_walk(
     dirlist: Vec<PathBuf>,
     with_hidden: bool,
     with_size: bool,
+    verbose: bool,
     n_thread: usize,
 ) -> Vec<Counter> {
     let (path_tx, path_rx) = m_channel::<PathBuf>();
@@ -278,7 +291,7 @@ pub fn parallel_walk(
                     }
 
                     // traverse all files in the directory
-                    let (sub_dirs, sub_cnt) = walk(&dirpath, with_hidden, with_size)
+                    let (sub_dirs, sub_cnt) = walk(&dirpath, with_hidden, with_size, verbose)
                         .expect(&format!("walk err: {}", &dirpath.to_str().unwrap()));
 
                     // send the sub_dirs and the sub_counter back
