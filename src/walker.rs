@@ -15,6 +15,7 @@ use std::thread;
 use std::time::Duration;
 
 use flume::unbounded as m_channel;
+use regex::Regex;
 
 use crate::output as op;
 
@@ -214,6 +215,7 @@ pub fn walk(
     dirpath: &PathBuf,
     with_hidden: bool,
     with_size: bool,
+    filter: Option<Regex>,
     verbose: bool,
 ) -> Result<DirDetail> {
     let mut dirs = DirList::new();
@@ -238,6 +240,12 @@ pub fn walk(
             ftype = op::warn(&"Dir");
             dirs.push(path.clone());
         } else {
+            if let Some(ref filter) = filter {
+                if !filter.is_match(fname.to_str().unwrap()) {
+                    continue;
+                }
+            }
+
             cnt.n_files += 1;
             ftype = op::info(&"File");
             // count file size and insert into SizeMap
@@ -258,6 +266,7 @@ pub fn parallel_walk(
     dirlist: Vec<PathBuf>,
     with_hidden: bool,
     with_size: bool,
+    filter: Option<Regex>,
     verbose: bool,
     n_thread: usize,
 ) -> Vec<Counter> {
@@ -278,6 +287,7 @@ pub fn parallel_walk(
         let _path_rx = path_rx.clone();
         let _cnt_tx = cnt_tx.clone();
         let _lock = stat_locker.clone();
+        let _filter = filter.clone();
 
         // create walk threads
         thread::Builder::new()
@@ -291,8 +301,9 @@ pub fn parallel_walk(
                     }
 
                     // traverse all files in the directory
-                    let (sub_dirs, sub_cnt) = walk(&dirpath, with_hidden, with_size, verbose)
-                        .expect(&format!("walk err: {}", &dirpath.to_str().unwrap()));
+                    let (sub_dirs, sub_cnt) =
+                        walk(&dirpath, with_hidden, with_size, _filter.clone(), verbose)
+                            .expect(&format!("walk err: {}", &dirpath.to_str().unwrap()));
 
                     // send the sub_dirs and the sub_counter back
                     for path in sub_dirs {

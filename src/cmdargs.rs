@@ -3,6 +3,7 @@ use std::process::exit;
 
 use clap::Parser;
 use num_cpus;
+use regex::Regex;
 
 use crate::output as op;
 
@@ -11,35 +12,44 @@ use crate::output as op;
 #[command(version = "0.2.2")]
 #[command(about = "Count the total number of files in given directories.")]
 pub struct CmdArgParser {
-    /// the directories (default: ./)
+    /// The directories (default: ./).
     pub directories: Vec<String>,
 
-    /// count all regular and hidden files.
+    /// Count all regular and hidden files.
     #[arg(short = 'a')]
     pub all_files: bool,
 
-    /// use regex to match file.
+    /// Match entries using regex (only matche filenames).
     #[arg(short = 'r', value_name = "PATTERN")]
     pub re: Option<String>,
 
-    /// count the total size of files.
+    /// Count the total size of files.
     #[arg(short = 's')]
     pub with_size: bool,
 
-    /// the number of threads for traversal (invalid in `non_recursive` mode).
+    /// The number of threads for traversal (invalid in `non_recursive` mode).
     #[arg(short = 't', value_name = "THREAD_NUM")]
     pub n_thread: Option<usize>,
 
-    /// verbose mode, open this option will display the found entries.
+    /// Verbose mode, open this option will display the found entries.
     #[arg(short = 'v')]
     pub verbose: bool,
 
-    /// non-recursive mode (files in sub-directories will be ignored).
+    /// Non-recursive mode (files in sub-directories will be ignored).
     #[arg(short = 'R')]
     pub non_recursive: bool,
 }
 
 impl CmdArgParser {
+    pub fn get_regex(&self) -> Option<Regex> {
+        if let Some(re) = &self.re {
+            if let Ok(filter) = Regex::new(re) {
+                return Some(filter);
+            }
+        }
+        return None;
+    }
+
     pub fn get_threads_num(&self) -> usize {
         match self.n_thread {
             Some(num) => return num,
