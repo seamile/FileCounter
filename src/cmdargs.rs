@@ -5,7 +5,7 @@ use clap::Parser;
 use num_cpus;
 use regex::Regex;
 
-use crate::output as op;
+use crate::output::{err, warn};
 
 #[derive(Parser)]
 #[command(name = "fcnt")]
@@ -43,11 +43,15 @@ pub struct CmdArgParser {
 impl CmdArgParser {
     pub fn get_regex(&self) -> Option<Regex> {
         if let Some(re) = &self.re {
-            if let Ok(filter) = Regex::new(re) {
+            if let Ok(filter) = Regex::new(re.as_str()) {
                 return Some(filter);
+            } else {
+                println!("{}", err(&format!("Involid regex pattern: {}", re)));
+                exit(1);
             }
+        } else {
+            return None;
         }
-        return None;
     }
 
     pub fn get_threads_num(&self) -> usize {
@@ -70,11 +74,11 @@ impl CmdArgParser {
                     directories.push(dir);
                 } else {
                     let msg = format!("{:?} is not a directory.", dir);
-                    println!("{}", op::warn(&msg));
+                    println!("{}", warn(&msg));
                 }
             }
             if directories.is_empty() {
-                println!("{}", op::err(&"fcnt: no directory found."));
+                println!("{}", err(&"Fcnt: no directory found."));
                 exit(1);
             }
         }

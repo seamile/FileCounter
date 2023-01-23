@@ -26,7 +26,7 @@ type Lengths = (usize, usize, usize, usize);
 
 #[derive(Debug)]
 pub struct Counter {
-    pub dirpath: PathBuf,
+    pub dirpath: String,
     pub n_files: u64,
     pub n_dirs: u64,
     pub sz_map: Option<SizeMap>,
@@ -38,21 +38,15 @@ impl Counter {
     /// Create a new Counter
     pub fn new(dirpath: &PathBuf, with_size: bool) -> Self {
         return Self {
-            dirpath: dirpath.clone(),
+            dirpath: dirpath.to_string_lossy().to_string(),
             n_files: 0,
             n_dirs: 0,
 
-            sz_map: if with_size {
-                Some(SizeMap::new())
-            } else {
-                None
+            sz_map: match with_size {
+                true => Some(SizeMap::new()),
+                false => None,
             },
         };
-    }
-
-    // the dirpath with `&str` type
-    fn path(&self) -> &str {
-        return self.dirpath.to_str().expect("dir path err");
     }
 
     // get the file size from Metadata
@@ -108,7 +102,7 @@ impl Counter {
     // get the length of each field for display
     fn lengths(&self) -> Lengths {
         return (
-            op::display_width(&self.path().to_string()),
+            op::display_width(&self.dirpath),
             self.n_files.to_string().len(),
             self.n_dirs.to_string().len(),
             self.readable_size().len(),
@@ -128,9 +122,8 @@ impl Counter {
     }
 
     fn to_string(&self, lens: Lengths) -> String {
-        let path = self.path();
         let size = self.readable_size();
-        let fields: Vec<&dyn ToString> = vec![&path, &self.n_files, &self.n_dirs, &size];
+        let fields: Vec<&dyn ToString> = vec![&self.dirpath, &self.n_files, &self.n_dirs, &size];
         let with_size = self.sz_map != None;
         return Self::join_fields(fields, with_size, lens);
     }
@@ -230,11 +223,6 @@ pub fn walk(
         if !with_hidden && fname.to_string_lossy().starts_with('.') {
             // ignore the hidden files and dirs
             continue;
-        } else if path.is_symlink() {
-            // The size of symbolic link is 0B.
-            // So just increase the num of files here.
-            cnt.n_files += 1;
-            ftype = op::note(&"Symlink");
         } else if path.is_dir() {
             cnt.n_dirs += 1;
             ftype = op::warn(&"Dir");
@@ -246,12 +234,19 @@ pub fn walk(
                 }
             }
 
-            cnt.n_files += 1;
-            ftype = op::info(&"File");
-            // count file size and insert into SizeMap
-            if let Some(mp) = cnt.sz_map.as_mut() {
-                let meta = entry.metadata()?;
-                mp.insert(meta.st_ino(), Counter::file_size(&meta));
+            if path.is_symlink() {
+                // The size of symbolic link is 0B.
+                // So just increase the num of files here.
+                cnt.n_files += 1;
+                ftype = op::note(&"Symlink");
+            } else {
+                cnt.n_files += 1;
+                ftype = op::info(&"File");
+                // count file size and insert into SizeMap
+                if let Some(mp) = cnt.sz_map.as_mut() {
+                    let meta = entry.metadata()?;
+                    mp.insert(meta.st_ino(), Counter::file_size(&meta));
+                }
             }
         }
         if verbose {
