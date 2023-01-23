@@ -12,16 +12,29 @@ fn main() {
 
     // walk all files
     let directories = args.get_directories();
+    let filter = args.get_regex();
     let mut counters = Vec::<Counter>::new();
     if args.non_recursive {
         for dirpath in directories {
-            if let Ok((_, counter)) = walker::walk(&dirpath, args.all_files, args.with_size) {
+            if let Ok((_, counter)) = walker::walk(
+                &dirpath,
+                args.all_files,
+                args.with_size,
+                filter.clone(),
+                args.verbose,
+            ) {
                 counters.push(counter);
             };
         }
     } else {
-        let n_thread = args.get_threads_num();
-        counters = walker::parallel_walk(directories, args.all_files, args.with_size, n_thread);
+        counters = walker::parallel_walk(
+            directories,
+            args.all_files,
+            args.with_size,
+            filter,
+            args.verbose,
+            args.get_threads_num(),
+        );
     }
 
     if args.with_size {

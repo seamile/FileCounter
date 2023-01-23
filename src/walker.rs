@@ -1,6 +1,12 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io::Result;
+#[cfg(target_os = "linux")]
+use std::os::linux::fs::MetadataExt;
+#[cfg(target_os = "macos")]
+use std::os::macos::fs::MetadataExt;
+#[cfg(target_os = "unix")]
+use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 use std::sync::mpsc::channel as s_channel;
 use std::sync::Arc;
@@ -9,13 +15,7 @@ use std::thread;
 use std::time::Duration;
 
 use flume::unbounded as m_channel;
-
-#[cfg(target_os = "linux")]
-use std::os::linux::fs::MetadataExt;
-#[cfg(target_os = "macos")]
-use std::os::macos::fs::MetadataExt;
-#[cfg(target_os = "unix")]
-use std::os::unix::fs::MetadataExt;
+use regex::Regex;
 
 use crate::output as op;
 
@@ -26,7 +26,7 @@ type Lengths = (usize, usize, usize, usize);
 
 #[derive(Debug)]
 pub struct Counter {
-    pub dirpath: PathBuf,
+    pub dirpath: String,
     pub n_files: u64,
     pub n_dirs: u64,
     pub sz_map: Option<SizeMap>,
@@ -38,21 +38,15 @@ impl Counter {
     /// Create a new Counter
     pub fn new(dirpath: &PathBuf, with_size: bool) -> Self {
         return Self {
-            dirpath: dirpath.clone(),
+            dirpath: dirpath.to_string_lossy().to_string(),
             n_files: 0,
             n_dirs: 0,
 
-            sz_map: if with_size {
-                Some(SizeMap::new())
-            } else {
-                None
+            sz_map: match with_size {
+                true => Some(SizeMap::new()),
+                false => None,
             },
         };
-    }
-
-    // the dirpath with `&str` type
-    fn path(&self) -> &str {
-        return self.dirpath.to_str().expect("dir path err");
     }
 
     // get the file size from Metadata
@@ -108,7 +102,7 @@ impl Counter {
     // get the length of each field for display
     fn lengths(&self) -> Lengths {
         return (
-            op::display_width(&self.path().to_string()),
+            op::display_width(&self.dirpath),
             self.n_files.to_string().len(),
             self.n_dirs.to_string().len(),
             self.readable_size().len(),
@@ -128,9 +122,8 @@ impl Counter {
     }
 
     fn to_string(&self, lens: Lengths) -> String {
-        let path = self.path();
         let size = self.readable_size();
-        let fields: Vec<&dyn ToString> = vec![&path, &self.n_files, &self.n_dirs, &size];
+        let fields: Vec<&dyn ToString> = vec![&self.dirpath, &self.n_files, &self.n_dirs, &size];
         let with_size = self.sz_map != None;
         return Self::join_fields(fields, with_size, lens);
     }
@@ -211,7 +204,13 @@ impl Counter {
     }
 }
 
-pub fn walk(dirpath: &PathBuf, with_hidden: bool, with_size: bool) -> Result<DirDetail> {
+pub fn walk(
+    dirpath: &PathBuf,
+    with_hidden: bool,
+    with_size: bool,
+    filter: Option<Regex>,
+    verbose: bool,
+) -> Result<DirDetail> {
     let mut dirs = DirList::new();
     let mut cnt = Counter::new(dirpath, with_size);
 
@@ -219,42 +218,57 @@ pub fn walk(dirpath: &PathBuf, with_hidden: bool, with_size: bool) -> Result<Dir
         let entry = entry?;
         let path = entry.path();
         let fname = entry.file_name();
+        let ftype: String;
 
         if !with_hidden && fname.to_string_lossy().starts_with('.') {
             // ignore the hidden files and dirs
             continue;
-        } else if path.is_symlink() {
-            // The size of symbolic link is 0B.
-            // So just increase the num of files here.
-            cnt.n_files += 1;
         } else if path.is_dir() {
             cnt.n_dirs += 1;
-            dirs.push(path);
+            ftype = op::warn(&"Dir");
+            dirs.push(path.clone());
         } else {
-            cnt.n_files += 1;
-            // count file size and insert into SizeMap
-            if let Some(mp) = cnt.sz_map.as_mut() {
-                let meta = entry.metadata()?;
-                mp.insert(meta.st_ino(), Counter::file_size(&meta));
+            if let Some(ref filter) = filter {
+                if !filter.is_match(fname.to_str().unwrap()) {
+                    continue;
+                }
             }
+
+            if path.is_symlink() {
+                // The size of symbolic link is 0B.
+                // So just increase the num of files here.
+                cnt.n_files += 1;
+                ftype = op::note(&"Symlink");
+            } else {
+                cnt.n_files += 1;
+                ftype = op::info(&"File");
+                // count file size and insert into SizeMap
+                if let Some(mp) = cnt.sz_map.as_mut() {
+                    let meta = entry.metadata()?;
+                    mp.insert(meta.st_ino(), Counter::file_size(&meta));
+                }
+            }
+        }
+        if verbose {
+            println!("{:>18} > {}", ftype, path.to_string_lossy());
         }
     }
 
     return Ok((dirs, cnt));
 }
 
-type Locker = Arc<Mutex<HashMap<usize, bool>>>;
-
 pub fn parallel_walk(
     dirlist: Vec<PathBuf>,
     with_hidden: bool,
     with_size: bool,
+    filter: Option<Regex>,
+    verbose: bool,
     n_thread: usize,
 ) -> Vec<Counter> {
     let (path_tx, path_rx) = m_channel::<PathBuf>();
     let (cnt_tx, cnt_rx) = s_channel::<Counter>();
     let mut counters = Vec::from_iter(dirlist.iter().map(|p| Counter::new(p, with_size)));
-    let stat_locker: Locker = Arc::new(Mutex::new(HashMap::new()));
+    let stat_locker = Arc::new(Mutex::new(HashMap::new()));
 
     // send dirlist to path channel
     for path in dirlist {
@@ -268,6 +282,7 @@ pub fn parallel_walk(
         let _path_rx = path_rx.clone();
         let _cnt_tx = cnt_tx.clone();
         let _lock = stat_locker.clone();
+        let _filter = filter.clone();
 
         // create walk threads
         thread::Builder::new()
@@ -281,8 +296,9 @@ pub fn parallel_walk(
                     }
 
                     // traverse all files in the directory
-                    let (sub_dirs, sub_cnt) = walk(&dirpath, with_hidden, with_size)
-                        .expect(&format!("walk err: {}", &dirpath.to_str().unwrap()));
+                    let (sub_dirs, sub_cnt) =
+                        walk(&dirpath, with_hidden, with_size, _filter.clone(), verbose)
+                            .expect(&format!("walk err: {}", &dirpath.to_str().unwrap()));
 
                     // send the sub_dirs and the sub_counter back
                     for path in sub_dirs {

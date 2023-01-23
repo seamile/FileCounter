@@ -14,3 +14,4 @@ description = "fcnt is a cmd-line tool for counting the number of files in given
 clap = { version = "4.0.29", features = ["derive"] }
 flume = "0.10.14"
 num_cpus = "1.15.0"
+regex = "1.7.1"

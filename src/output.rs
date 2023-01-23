@@ -44,17 +44,22 @@ pub fn title(arg: &dyn Display) -> String {
 
 #[allow(unused)]
 pub fn info(arg: &dyn Display) -> String {
-    return color_me(arg, Color::BrightBlue, Effect::Default);
+    return color_me(arg, Color::BrightCyan, Effect::Default);
+}
+
+#[allow(unused)]
+pub fn note(arg: &dyn Display) -> String {
+    return color_me(arg, Color::Magenta, Effect::Default);
 }
 
 #[allow(unused)]
 pub fn warn(arg: &dyn Display) -> String {
-    return color_me(arg, Color::Yellow, Effect::Default);
+    return color_me(arg, Color::Yellow, Effect::Bold);
 }
 
 #[allow(unused)]
 pub fn err(arg: &dyn Display) -> String {
-    return color_me(arg, Color::Red, Effect::Default);
+    return color_me(arg, Color::Red, Effect::Bold);
 }
 
 #[allow(unused)]
