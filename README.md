@@ -15,12 +15,17 @@ $ fcnt [OPTIONS] [DIRECTORIES]...
   [DIRECTORIES]...  the directories (default: ./)
 
 - Options:
-  * `-a`             count all regular and hidden files
-  * `-s`             count the total size of files
-  * `-R`             non-recursive mode (files in sub-directories will be ignored)
-  * `-t N_THREAD`    the number of threads for traversal (invalid in `non_recursive` mode)
-  * `-h, --help`     Print help information
-  * `-V, --version`  Print version information
+
+  ```
+  -a                 Count all regular and hidden files
+  -r <PATTERN>       Match entries using regex (only matche filenames)
+  -s                 Count the total size of files
+  -t <THREAD_NUM>    The number of threads for traversal (invalid in NON_RECURSIVE mode)
+  -v                 Verbose mode, open this option will display the found entries
+  -R                 Non-recursive mode (files in sub-directories will be ignored)
+  -h, --help         Print help
+  -V, --version      Print version
+  ```
 
 ## Example
 

@@ -9,7 +9,7 @@ use crate::output::{err, warn};
 
 #[derive(Parser)]
 #[command(name = "fcnt")]
-#[command(version = "0.2.2")]
+#[command(version = "0.2.3")]
 #[command(about = "Count the total number of files in given directories.")]
 pub struct CmdArgParser {
     /// The directories (default: ./).
