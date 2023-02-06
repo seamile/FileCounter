@@ -13,6 +13,7 @@ fn main() {
     // walk all files
     let directories = args.get_directories();
     let filter = args.get_regex();
+    let with_dir = filter.is_none();
     let mut counters = Vec::<Counter>::new();
     if args.non_recursive {
         for dirpath in directories {
@@ -43,5 +44,5 @@ fn main() {
         counters.sort_by(|c1, c2| c2.n_files.cmp(&c1.n_files));
     }
 
-    Counter::output(&counters, args.with_size);
+    Counter::output(&counters, with_dir, args.with_size);
 }

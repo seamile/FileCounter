@@ -109,37 +109,48 @@ impl Counter {
         );
     }
 
-    fn join_fields(fields: Vec<&dyn ToString>, with_size: bool, lens: Lengths) -> String {
-        let f0 = op::left_justify(fields[0], lens.0);
-        let f1 = op::right_justify(fields[1], lens.1);
-        let f2 = op::right_justify(fields[2], lens.2);
-        if with_size {
-            let f3 = op::right_justify(fields[3], lens.3);
-            return vec![f0, f1, f2, f3].join("  ");
-        } else {
-            return vec![f0, f1, f2].join("  ");
+    fn join_fields(
+        fields: Vec<&dyn ToString>,
+        with_dir: bool,
+        with_size: bool,
+        lens: Lengths,
+    ) -> String {
+        let mut str_fields = vec![
+            op::left_justify(fields[0], lens.0),
+            op::right_justify(fields[1], lens.1),
+        ];
+
+        if with_dir {
+            str_fields.push(op::right_justify(fields[2], lens.2));
         }
+
+        if with_size {
+            str_fields.push(op::right_justify(fields[3], lens.3));
+        }
+
+        return str_fields.join("  ");
     }
 
-    fn to_string(&self, lens: Lengths) -> String {
+    fn to_string(&self, with_dir: bool, lens: Lengths) -> String {
         let size = self.readable_size();
         let fields: Vec<&dyn ToString> = vec![&self.dirpath, &self.n_files, &self.n_dirs, &size];
         let with_size = self.sz_map != None;
-        return Self::join_fields(fields, with_size, lens);
+        return Self::join_fields(fields, with_dir, with_size, lens);
     }
 
-    fn make_head_line(with_size: bool, lens: Lengths) -> String {
+    fn make_head_line(with_dir: bool, with_size: bool, lens: Lengths) -> String {
         let fields: Vec<&dyn ToString> = vec![&"Path", &"Files", &"Dirs", &"Size"];
-        return op::title(&Self::join_fields(fields, with_size, lens));
+        return op::title(&Self::join_fields(fields, with_dir, with_size, lens));
     }
 
     fn make_total_line(
         total: (String, String, String, String),
+        with_dir: bool,
         with_size: bool,
         lens: Lengths,
     ) -> String {
         let fields: Vec<&dyn ToString> = vec![&total.0, &total.1, &total.2, &total.3];
-        let total_line = Self::join_fields(fields, with_size, lens);
+        let total_line = Self::join_fields(fields, with_dir, with_size, lens);
         let hor_line = op::fill_char('─', total_line.len());
 
         return format!("{}\n{}", hor_line, op::strong(&total_line));
@@ -172,7 +183,7 @@ impl Counter {
         return max_lens;
     }
 
-    pub fn output(counters: &Vec<Self>, with_size: bool) {
+    pub fn output(counters: &Vec<Self>, with_dir: bool, with_size: bool) {
         let total = if counters.len() > 1 {
             Self::summarize(counters)
         } else {
@@ -188,14 +199,14 @@ impl Counter {
 
         // create the output lines from title, content and total
         let mut lines: Vec<String> = vec![];
-        lines.push(Self::make_head_line(with_size, max_lens));
+        lines.push(Self::make_head_line(with_dir, with_size, max_lens));
         for cnt in counters {
-            lines.push(cnt.to_string(max_lens));
+            lines.push(cnt.to_string(with_dir, max_lens));
         }
 
         // output the total only when there is more than one counters
         if counters.len() > 1 {
-            let total_line = Self::make_total_line(total, with_size, max_lens);
+            let total_line = Self::make_total_line(total, with_dir, with_size, max_lens);
             lines.push(total_line);
         }
 
