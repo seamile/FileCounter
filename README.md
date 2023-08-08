@@ -1,5 +1,8 @@
 # fcnt
 
+![Crates.io](https://img.shields.io/crates/v/fcnt?color=9cf)
+![Crates.io](https://img.shields.io/crates/d/fcnt?color=green&label=install)
+
 **fcnt** is a file counter used in command line.
 
 It can quickly count the number and size of huge amount of files in multiple directories through multi-threading.
@@ -19,6 +22,7 @@ $ fcnt [OPTIONS] [DIRECTORIES]...
   ```
   -a                 Count all regular and hidden files
   -r <PATTERN>       Match entries using regex (only matche filenames)
+  -o <ORDER_BY>      The value to sort the results by [possible values: name, count, size]
   -s                 Count the total size of files
   -t <THREAD_NUM>    The number of threads for traversal (invalid in NON_RECURSIVE mode)
   -v                 Verbose mode, open this option will display the found entries
