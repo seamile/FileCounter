@@ -1,11 +1,21 @@
 use std::path::PathBuf;
 use std::process::exit;
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use num_cpus;
 use regex::Regex;
 
 use crate::output::{err, warn};
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum OrderBy {
+    /// order by pathname
+    Name,
+    /// order by the count of files
+    Count,
+    /// order by size
+    Size,
+}
 
 #[derive(Parser)]
 #[command(name = "fcnt")]
@@ -22,6 +32,10 @@ pub struct CmdArgParser {
     /// Match entries using regex (only matche filenames).
     #[arg(short = 'r', value_name = "PATTERN")]
     pub re: Option<String>,
+
+    /// The value to sort the results by.
+    #[arg(short = 'o', value_enum)]
+    pub order_by: Option<OrderBy>,
 
     /// Count the total size of files.
     #[arg(short = 's')]
@@ -70,9 +84,9 @@ impl CmdArgParser {
             directories.push(PathBuf::from("./"));
         } else {
             for dir in self.directories.iter().map(|p| PathBuf::from(p)) {
-                if dir.is_dir() {
+                if !dir.is_symlink() && dir.is_dir() {
                     directories.push(dir);
-                } else {
+                } else if self.verbose {
                     let msg = format!("{:?} is not a directory.", dir);
                     println!("{}", warn(&msg));
                 }

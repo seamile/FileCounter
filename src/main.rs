@@ -3,7 +3,7 @@ mod output;
 mod walker;
 
 use clap::Parser;
-use cmdargs::CmdArgParser;
+use cmdargs::{CmdArgParser, OrderBy};
 use walker::Counter;
 
 fn main() {
@@ -38,10 +38,17 @@ fn main() {
         );
     }
 
-    if args.with_size {
-        counters.sort_by(|c1, c2| c2.size().cmp(&c1.size()));
-    } else {
-        counters.sort_by(|c1, c2| c2.n_files.cmp(&c1.n_files));
+    match args.order_by {
+        Some(OrderBy::Name) => {
+            counters.sort_by(|c1, c2| c1.dirpath.cmp(&c2.dirpath));
+        }
+        Some(OrderBy::Count) => {
+            counters.sort_by(|c1, c2| c2.n_files.cmp(&c1.n_files));
+        }
+        Some(OrderBy::Size) => {
+            counters.sort_by(|c1, c2| c2.size().cmp(&c1.size()));
+        }
+        None => {}
     }
 
     Counter::output(&counters, with_dir, args.with_size);

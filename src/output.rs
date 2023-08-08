@@ -183,3 +183,94 @@ fn test_non_ascii() {
     assert_eq!(aligned_s3.len(), 30);
     assert_eq!(aligned_s4.len(), 34);
 }
+
+#[test]
+fn test_color_me() {
+    assert_eq!(
+        color_me(&"hello", Color::Red, Effect::Bold),
+        "\x1b[1;31mhello\x1b[0m"
+    );
+    assert_eq!(
+        color_me(&"world", Color::Green, Effect::Underline),
+        "\x1b[4;32mworld\x1b[0m"
+    );
+}
+
+#[test]
+fn test_title() {
+    assert_eq!(title(&"Welcome"), "\x1b[4;92mWelcome\x1b[0m");
+}
+
+#[test]
+fn test_info() {
+    assert_eq!(
+        info(&"This is an information"),
+        "\x1b[0;96mThis is an information\x1b[0m"
+    );
+}
+
+#[test]
+fn test_note() {
+    assert_eq!(
+        note(&"Note: this is important"),
+        "\x1b[0;35mNote: this is important\x1b[0m"
+    );
+}
+
+#[test]
+fn test_warn() {
+    assert_eq!(
+        warn(&"Warning: something may go wrong"),
+        "\x1b[1;33mWarning: something may go wrong\x1b[0m"
+    );
+}
+
+#[test]
+fn test_err() {
+    assert_eq!(
+        err(&"Error: something went wrong"),
+        "\x1b[1;31mError: something went wrong\x1b[0m"
+    );
+}
+
+#[test]
+fn test_strong() {
+    assert_eq!(strong(&"strong text"), "\x1b[1;99mstrong text\x1b[0m");
+}
+
+#[test]
+fn test_fill_char() {
+    assert_eq!(fill_char('-', 5), "-----");
+    assert_eq!(fill_char('*', 3), "***");
+}
+
+#[test]
+fn test_spaces() {
+    assert_eq!(spaces(3), "   ");
+    assert_eq!(spaces(0), "");
+}
+
+#[test]
+fn test_display_width() {
+    assert_eq!(display_width(&"hello".to_string()), 5);
+    assert_eq!(display_width(&"你好".to_string()), 4);
+    assert_eq!(display_width(&"abc你好".to_string()), 6);
+}
+
+#[test]
+fn test_center_justify() {
+    assert_eq!(center_justify(&"hello", 10), "  hello   ");
+    assert_eq!(center_justify(&"world", 9), "  world  ");
+}
+
+#[test]
+fn test_left_justify() {
+    assert_eq!(left_justify(&"hello", 8), "hello   ");
+    assert_eq!(left_justify(&"world", 6), "world ");
+}
+
+#[test]
+fn test_right_justify() {
+    assert_eq!(right_justify(&"hello", 8), "   hello");
+    assert_eq!(right_justify(&"world", 6), " world");
+}

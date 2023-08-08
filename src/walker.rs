@@ -234,6 +234,15 @@ pub fn walk(
         if !with_hidden && fname.to_string_lossy().starts_with('.') {
             // ignore the hidden files and dirs
             continue;
+        } else if path.is_symlink() {
+            // The size of symbolic link is 0B.
+            // So just increase the num here.
+            if path.is_dir() {
+                cnt.n_dirs += 1;
+            } else {
+                cnt.n_files += 1;
+            }
+            ftype = op::note(&"Symlink");
         } else if path.is_dir() {
             cnt.n_dirs += 1;
             ftype = op::warn(&"Dir");
@@ -245,19 +254,12 @@ pub fn walk(
                 }
             }
 
-            if path.is_symlink() {
-                // The size of symbolic link is 0B.
-                // So just increase the num of files here.
-                cnt.n_files += 1;
-                ftype = op::note(&"Symlink");
-            } else {
-                cnt.n_files += 1;
-                ftype = op::info(&"File");
-                // count file size and insert into SizeMap
-                if let Some(mp) = cnt.sz_map.as_mut() {
-                    let meta = entry.metadata()?;
-                    mp.insert(meta.st_ino(), Counter::file_size(&meta));
-                }
+            cnt.n_files += 1;
+            ftype = op::info(&"File");
+            // count file size and insert into SizeMap
+            if let Some(mp) = cnt.sz_map.as_mut() {
+                let meta = entry.metadata()?;
+                mp.insert(meta.st_ino(), Counter::file_size(&meta));
             }
         }
         if verbose {
