@@ -1,11 +1,11 @@
-use std::path::PathBuf;
+use std::path::{PathBuf, MAIN_SEPARATOR};
 use std::process::exit;
 
 use clap::{Parser, ValueEnum};
 use num_cpus;
 use regex::Regex;
 
-use crate::output::{err, warn};
+use crate::output::err;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum OrderBy {
@@ -21,7 +21,7 @@ pub enum OrderBy {
 
 #[derive(Parser)]
 #[command(name = "fcnt")]
-#[command(version = "0.2.5")]
+#[command(version = "0.2.6")]
 #[command(about = "Count the total number of files in given directories.")]
 pub struct CmdArgParser {
     /// The directories (default: ./).
@@ -81,23 +81,21 @@ impl CmdArgParser {
     }
 
     pub fn get_directories(&self) -> Vec<PathBuf> {
-        let mut directories: Vec<PathBuf> = vec![];
         if self.directories.is_empty() {
-            directories.push(PathBuf::from("./"));
+            vec![PathBuf::from(".")]
         } else {
-            for dir in self.directories.iter().map(|p| PathBuf::from(p)) {
-                if !dir.is_symlink() && dir.is_dir() {
-                    directories.push(dir);
-                } else if self.verbose {
-                    let msg = format!("{:?} is not a directory.", dir);
-                    println!("{}", warn(&msg));
-                }
-            }
-            if directories.is_empty() {
-                println!("{}", err(&"Fcnt: no directory found."));
-                exit(1);
-            }
+            self.directories
+                .iter()
+                .map(|p| {
+                    let len = p.len();
+                    if len > 1 {
+                        PathBuf::from(p.trim_end_matches(MAIN_SEPARATOR))
+                    } else {
+                        PathBuf::from(p)
+                    }
+                })
+                .filter(|p| p.is_dir())
+                .collect()
         }
-        return directories;
     }
 }

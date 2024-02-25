@@ -7,7 +7,7 @@ use std::os::linux::fs::MetadataExt;
 use std::os::macos::fs::MetadataExt;
 #[cfg(target_os = "unix")]
 use std::os::unix::fs::MetadataExt;
-use std::path::PathBuf;
+use std::path::{PathBuf, MAIN_SEPARATOR_STR};
 use std::sync::mpsc::channel as s_channel;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -38,7 +38,7 @@ impl Counter {
     /// Create a new Counter
     pub fn new(dirpath: &PathBuf, with_size: bool) -> Self {
         return Self {
-            dirpath: dirpath.to_string_lossy().to_string(),
+            dirpath: dirpath.to_string_lossy().to_string() + MAIN_SEPARATOR_STR,
             n_files: 0,
             n_dirs: 0,
 
