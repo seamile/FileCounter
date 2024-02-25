@@ -56,3 +56,17 @@ Path           Files  Dirs   Size
 ─────────────────────────────────
 Total          19324  4590  42.6G
 ```
+
+
+## Todo
+
+1. 统计数量时，不要用 starts_with, 会发生误判，如 ch1, ch10, ch11
+2. 文件夹也是，比如 early 和 early-output 内都是 111 个文件，但 early-output 中的也会统计到 early 中
+
+  ```
+  Path          Files  Dirs
+  early           222     0
+  early-output    111     0
+  ```
+
+3. 排序时使用缩写 `-o {n, f, d, s}` 分别对应按名称、文件数、目录数、总大小

@@ -9,6 +9,7 @@ use walker::Counter;
 fn main() {
     // parse cmd-line args and get directories
     let args = CmdArgParser::parse();
+    let with_size = args.with_size || args.order_by == Some(OrderBy::S);
 
     // walk all files
     let directories = args.get_directories();
@@ -20,7 +21,7 @@ fn main() {
             if let Ok((_, counter)) = walker::walk(
                 &dirpath,
                 args.all_files,
-                args.with_size,
+                with_size,
                 filter.clone(),
                 args.verbose,
             ) {
@@ -31,7 +32,7 @@ fn main() {
         counters = walker::parallel_walk(
             directories,
             args.all_files,
-            args.with_size,
+            with_size,
             filter,
             args.verbose,
             args.get_threads_num(),
@@ -39,17 +40,20 @@ fn main() {
     }
 
     match args.order_by {
-        Some(OrderBy::Name) => {
+        Some(OrderBy::N) => {
             counters.sort_by(|c1, c2| c1.dirpath.cmp(&c2.dirpath));
         }
-        Some(OrderBy::Count) => {
+        Some(OrderBy::F) => {
             counters.sort_by(|c1, c2| c2.n_files.cmp(&c1.n_files));
         }
-        Some(OrderBy::Size) => {
+        Some(OrderBy::D) => {
+            counters.sort_by(|c1, c2| c2.n_dirs.cmp(&c1.n_dirs));
+        }
+        Some(OrderBy::S) => {
             counters.sort_by(|c1, c2| c2.size().cmp(&c1.size()));
         }
         None => {}
     }
 
-    Counter::output(&counters, with_dir, args.with_size);
+    Counter::output(&counters, with_dir, with_size);
 }

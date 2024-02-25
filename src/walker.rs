@@ -33,7 +33,7 @@ pub struct Counter {
 }
 
 impl Counter {
-    const SZ_UNIT: [&str; 7] = ["B", "K", "M", "G", "T", "P", "E"];
+    const SZ_UNIT: [&'static str; 7] = ["B", "K", "M", "G", "T", "P", "E"];
 
     /// Create a new Counter
     pub fn new(dirpath: &PathBuf, with_size: bool) -> Self {
