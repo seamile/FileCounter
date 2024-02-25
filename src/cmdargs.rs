@@ -10,12 +10,20 @@ use crate::output::err;
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum OrderBy {
     /// order by pathname
+    Name,
+    /// alias of Name
     N,
     /// order by number of files
+    File,
+    /// alias of File
     F,
     /// order by number of directories
+    Dir,
+    /// alias of Dir
     D,
     /// order by size of each directory
+    Size,
+    /// alias of Size
     S,
 }
 

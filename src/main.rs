@@ -9,7 +9,8 @@ use walker::Counter;
 fn main() {
     // parse cmd-line args and get directories
     let args = CmdArgParser::parse();
-    let with_size = args.with_size || args.order_by == Some(OrderBy::S);
+    let with_size =
+        args.with_size || args.order_by == Some(OrderBy::S) || args.order_by == Some(OrderBy::Size);
 
     // walk all files
     let directories = args.get_directories();
@@ -40,16 +41,16 @@ fn main() {
     }
 
     match args.order_by {
-        Some(OrderBy::N) => {
+        Some(OrderBy::Name) | Some(OrderBy::N) => {
             counters.sort_by(|c1, c2| c1.dirpath.cmp(&c2.dirpath));
         }
-        Some(OrderBy::F) => {
+        Some(OrderBy::File) | Some(OrderBy::F) => {
             counters.sort_by(|c1, c2| c2.n_files.cmp(&c1.n_files));
         }
-        Some(OrderBy::D) => {
+        Some(OrderBy::Dir) | Some(OrderBy::D) => {
             counters.sort_by(|c1, c2| c2.n_dirs.cmp(&c1.n_dirs));
         }
-        Some(OrderBy::S) => {
+        Some(OrderBy::Size) | Some(OrderBy::S) => {
             counters.sort_by(|c1, c2| c2.size().cmp(&c1.size()));
         }
         None => {}

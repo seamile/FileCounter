@@ -22,7 +22,7 @@ $ fcnt [OPTIONS] [DIRECTORIES]...
   ```
   -a                 Count all regular and hidden files
   -r <PATTERN>       Match entries using regex (only matche filenames)
-  -o <ORDER_BY>      The value to sort the results by [possible values: name, count, size]
+  -o <ORDER_BY>      The value to sort the results by [possible values: name, n, file, f, dir, d, size, s]
   -s                 Count the total size of files
   -t <THREAD_NUM>    The number of threads for traversal (invalid in NON_RECURSIVE mode)
   -v                 Verbose mode, open this option will display the found entries
