@@ -5,7 +5,7 @@ use clap::{Parser, ValueEnum};
 use num_cpus;
 use regex::Regex;
 
-use crate::output::err;
+use crate::output::print_err;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum OrderBy {
@@ -29,7 +29,7 @@ pub enum OrderBy {
 
 #[derive(Parser)]
 #[command(name = "fcnt")]
-#[command(version = "0.2.6")]
+#[command(version = "0.2.7")]
 #[command(about = "Count the total number of files in given directories.")]
 pub struct CmdArgParser {
     /// The directories (default: ./).
@@ -67,12 +67,19 @@ pub struct CmdArgParser {
 impl CmdArgParser {
     pub fn get_regex(&self) -> Option<Regex> {
         if let Some(re) = &self.re {
-            if let Ok(filter) = Regex::new(re.as_str()) {
-                return Some(filter);
-            } else {
-                println!("{}", err(&format!("Involid regex pattern: {}", re)));
-                exit(1);
+            match Regex::new(re.as_str()) {
+                Ok(filter) => return Some(filter),
+                Err(err) => {
+                    print_err(&err, &re);
+                    exit(1);
+                }
             }
+            // if let Ok(filter) = Regex::new(re.as_str()) {
+            //     return Some(filter);
+            // } else {
+            //     println!("{}", err(&format!("Involid regex pattern: {}", re)));
+            //     exit(1);
+            // }
         } else {
             return None;
         }

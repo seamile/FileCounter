@@ -309,15 +309,16 @@ pub fn parallel_walk(
                     }
 
                     // traverse all files in the directory
-                    let (sub_dirs, sub_cnt) =
-                        walk(&dirpath, with_hidden, with_size, _filter.clone(), verbose)
-                            .expect(&format!("walk err: {}", &dirpath.to_str().unwrap()));
-
-                    // send the sub_dirs and the sub_counter back
-                    for path in sub_dirs {
-                        _path_tx.send(path.clone()).expect("send path err");
-                    }
-                    _cnt_tx.send(sub_cnt).expect("send counter err");
+                    match walk(&dirpath, with_hidden, with_size, _filter.clone(), verbose) {
+                        Ok((sub_dirs, sub_cnt)) => {
+                            // send the sub_dirs and the sub_counter back
+                            for path in sub_dirs {
+                                _path_tx.send(path.clone()).expect("send path err");
+                            }
+                            _cnt_tx.send(sub_cnt).expect("send counter err");
+                        }
+                        Err(err) => op::print_err(&err, &dirpath.display()),
+                    };
 
                     // switch stat to IDLE
                     {

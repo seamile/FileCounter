@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::fmt::Display;
 
 #[allow(unused)]
@@ -58,13 +59,18 @@ pub fn warn(arg: &dyn Display) -> String {
 }
 
 #[allow(unused)]
-pub fn err(arg: &dyn Display) -> String {
+pub fn error(arg: &dyn Display) -> String {
     return color_me(arg, Color::Red, Effect::Bold);
 }
 
 #[allow(unused)]
 pub fn strong(arg: &dyn Display) -> String {
     return color_me(arg, Color::Default, Effect::Bold);
+}
+
+pub fn print_err(err: &dyn Error, msg: &dyn Display) {
+    let head = err.to_string();
+    eprintln!("{}: {}", error(&head), msg)
 }
 
 pub fn fill_char(chr: char, width: usize) -> String {
@@ -133,7 +139,7 @@ fn test_color() {
     println!("title: {}", title(&s));
     println!("info : {}", info(&s));
     println!("warn : {}", warn(&s));
-    println!("err  : {}", err(&s));
+    println!("error  : {}", error(&s));
 }
 
 #[test]
@@ -226,9 +232,9 @@ fn test_warn() {
 }
 
 #[test]
-fn test_err() {
+fn test_error() {
     assert_eq!(
-        err(&"Error: something went wrong"),
+        error(&"Error: something went wrong"),
         "\x1b[1;31mError: something went wrong\x1b[0m"
     );
 }
