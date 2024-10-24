@@ -39,29 +39,37 @@ pub struct CmdArgParser {
     #[arg(short = 'a')]
     pub all_files: bool,
 
-    /// Match entries using regex (only matche filenames).
-    #[arg(short = 'r', value_name = "PATTERN")]
-    pub re: Option<String>,
+    /// Count the number of directories.
+    #[arg(short = 'd')]
+    pub with_dir: bool,
 
     /// The value to sort the results by.
     #[arg(short = 'o', value_enum)]
     pub order_by: Option<OrderBy>,
+
+    /// Match entries using regex (only matche filenames).
+    #[arg(short = 'r', value_name = "PATTERN")]
+    pub re: Option<String>,
+
+    /// Non-recursive mode (files in sub-directories will be ignored).
+    #[arg(short = 'R')]
+    pub non_recursive: bool,
 
     /// Count the total size of files.
     #[arg(short = 's')]
     pub with_size: bool,
 
     /// The number of threads for traversal (invalid in `non_recursive` mode).
-    #[arg(short = 't', value_name = "THREAD_NUM")]
+    #[arg(short = 't', value_name = "TOP")]
+    pub top_n: Option<usize>,
+
+    /// The number of threads for traversal (invalid in `non_recursive` mode).
+    #[arg(short = 'T', value_name = "THREAD_NUM")]
     pub n_thread: Option<usize>,
 
     /// Verbose mode, open this option will display the found entries.
     #[arg(short = 'v')]
     pub verbose: bool,
-
-    /// Non-recursive mode (files in sub-directories will be ignored).
-    #[arg(short = 'R')]
-    pub non_recursive: bool,
 }
 
 impl CmdArgParser {

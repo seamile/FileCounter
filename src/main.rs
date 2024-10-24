@@ -11,11 +11,12 @@ fn main() {
     let args = CmdArgParser::parse();
     let with_size =
         args.with_size || args.order_by == Some(OrderBy::S) || args.order_by == Some(OrderBy::Size);
+    let with_dir =
+        args.with_dir || args.order_by == Some(OrderBy::D) || args.order_by == Some(OrderBy::Dir);
 
     // walk all files
     let directories = args.get_directories();
     let filter = args.get_regex();
-    let with_dir = filter.is_none();
     let mut counters = Vec::<Counter>::new();
     if args.non_recursive {
         for dirpath in directories {
